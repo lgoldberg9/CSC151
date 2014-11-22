@@ -166,44 +166,110 @@
           ;;; Likewise for y-coordinate.
           )))
 
-(define reflective-circle
-  (lambda (image x-center y-center aoe radius)
-    (let* ([left (- x-center aoe)]
-           [top (- y-center aoe)]
-           [width-height (* 2 radius)]
-           [new-image (image-new width-height width-height)])
-      (circle new-image x-center y-center radius)
-      (image-recompute!
-       new-image
-       (lambda (col row)
-         ;         (let* ([polars (polar-coords x-center y-center col row)]
-         ;                [scaled-radius (/ (* radius (car polars)) aoe)]
-         ;                [cartesian 
-         ;                 (cartesian-coords (list scaled-radius (cadr polars))
-         ;                                   x-center y-center)])
-         ;           (if (<= (sin-distance1 x-center y-center col1 row) aoe)
-         (image-get-pixel image col row)
-         ;               (irgb 0 0 0)))
-         )))))
+;(define reflective-circle
+;  (lambda (image x-center y-center aoe radius)
+;    (let* ([left (- x-center aoe)]
+;           [top (- y-center aoe)]
+;           [width-height (* 2 radius)]
+;           [new-image (image-new width-height width-height)])
+;      (circle new-image x-center y-center radius)
+;      (image-recompute!
+;       new-image
+;       (lambda (col row)
+;         ;         (let* ([polars (polar-coords x-center y-center col row)]
+;         ;                [scaled-radius (/ (* radius (car polars)) aoe)]
+;         ;                [cartesian 
+;         ;                 (cartesian-coords (list scaled-radius (cadr polars))
+;         ;                                   x-center y-center)])
+;         ;           (if (<= (sin-distance1 x-center y-center col1 row) aoe)
+;         (image-get-pixel image col row)
+;         ;               (irgb 0 0 0)))
+;         )))))
 
-(define reflective-circle-1
-  (lambda (image x-center y-center aoe radius)
-    (gimp-image-add-layer
+(define reflective-ellipse-from-layer
+  (lambda (image base blurred left-x left-y width height aoe)
+    (copy-and-add-layer! image base)
+    (let ([temp-layer (get-top-layer image)])
+      (image-select-ellipse! image REPLACE 
+                             (- left-x aoe) 
+                             (- left-y aoe)
+                             (+ (* 2 aoe) width)
+                             (+ (* 2 aoe) height))
+      
+      (gimp-floating-sel-to-layer
+       (car (gimp-item-transform-scale temp-layer left-x left-y 
+                                       (+ left-x width) (+ left-y height))))
+      (gimp-image-remove-layer image temp-layer)
+      (merge-floating-layer image (get-top-layer image) 1)
+      ;(display temp-layer) (newline) (display (gimp-image-get-layers image))
+      )))
+
+(define merge-floating-layer
+  (lambda (image layer-merge merge-type)
+    (gimp-image-merge-down image layer-merge merge-type)))
+
+(define blur-image
+  (lambda (image layer repititions)
+    (repeat repititions plug-in-blur 1 image layer)))
+
+(define rain-me!
+  (lambda (image min-width min-height delta-width delta-height blur-degree aoe k)
+    (copy-and-add-layer! image (caadr (gimp-image-get-layers image)))
+    (let* ([layers (cadr (gimp-image-get-layers image))]
+           [base (cadr layers)]
+           [blurred (car layers)])
+      (blur-image image blurred blur-degree)
+      (let kernel ([counter 0])
+        (if (= counter k)
+            (context-update-displays!)
+            (let ()
+              (reflective-ellipse-from-layer 
+               image base blurred 
+               (random (image-width image))
+               (random (image-height image))
+               (+ min-width (random delta-width)) 
+               (+ min-height (random delta-height))  
+               aoe)
+              (kernel (+ counter 1))))))))
+
+(define copy-and-add-layer!
+  (lambda (image layer)
+    (gimp-image-add-layer 
      image
-     (car (gimp-layer-copy
-           (caadr (gimp-image-get-layers image))
-           1))
-     0)
-    (circle image x-center y-center aoe)
-    (gimp-item-transform-scale 
-     (caadr (gimp-image-get-layers image))
-     (- x-center radius)
-     (- y-center radius)
-     (+ x-center radius)
-     (+ y-center radius))
-    ))
+     (car (gimp-layer-copy layer 1))
+     0)))
 
-;(define kitty (image-load "/home/fisherhe/Desktop/kitten.jpg"))
-;(image-show kitty)
-;(reflective-circle-1 kitty 200 200 100 50)
+(define get-top-layer
+  (lambda (image)
+    (caadr (gimp-image-get-layers image))))
+
+;(define rain-onto-layer
+;  (lambda (n image layer min-width min-height delta-width delta-height aoe)
+;   (let kernel ([countdown n])
+;      (if (= 0 n)
+;          (let ()
+;            (image-select-nothing!)
+;            (context-update-displays!))
+;          (let ()
+;            (reflective-ellipse-from-layer
+;             image
+;             layer
+;             (random (image-width image))
+;             (random (image-height image))
+;             (+ min-width (random delta-width))
+;             (+ min-height (random delta-height))
+;             aoe)
+;            (kernel (- countdown 1))
+;            )))))
+
+;(define moving-items
+;  (lambda (image-to selection)
+;    (gimp-edit-cut selection)
+;    (gimp-edit-paste )))
+
+
+(define kitty (image-load "/home/fisherhe/Desktop/kitten.jpg"))
+(image-show kitty)
+(rain-me! kitty 5 5 40 30 50 5 200)
+;(reflective-ellipse-from-layer kitty 200 200 20 30 100)
 
