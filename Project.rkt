@@ -12,29 +12,7 @@
 
 (define image-series
   (lambda (n width height)
-    (cond [(= n 666)
-           (image-show (image-load "/home/goldberg/Pictures/samcollage.png"))]
-;          [
-;           ]
-;          [
-;           ]
-;          [
-;           ]
-;          [
-;           ]
-;          [
-;           ]
-;          [
-;           ]
-;          [
-;           ]
-;          [
-;           ]
-;          [
-;           ]
-;          [else 
-;           ]
-          )))
+    "bullshit"))
 
 (define taxicab-distance
   (lambda (col1 row1 col2 row2)
@@ -114,28 +92,31 @@
           (kernel (+ sum-so-far 1) (cdr remaining-matrix))
           ))))
 
-(define markov-chain
-  (lambda (matrix vec power)
-    (let kernel ([markov-vec vec][counter 0])
+(define m-multiply
+  (lambda (matrix1 matrix2)
+    (let ([dim-row (matrix-dim-row matrix1)])
+      (let row-kernel ([counter 0]
+                       [mat1 matrix1]
+                       [resultant null])
+        (if (= counter dim-row)
+            (reverse resultant)
+            (row-kernel (+ counter 1) (cdr mat1) 
+                        (cons (functional-kernel mat1 matrix2) resultant)))
+        ))))
+(define functional-kernel 
+  (lambda (matrix1 matrix2)
+    (let kernel ([m1 (car matrix1)][m2 (car matrix2)])
+      (if (and (null? m1) (null? m2))
+          0
+          (+ (* (car m1) (car m2))
+             (kernel (cdr m1) (cdr m2)))))))
+
+(define m-power
+  (lambda (matrix power)
+    (let kernel ([counter 1])
       (if (= counter power)
-          markov-vec
-          (kernel (vector-composition matrix markov-vec) (+ 1 counter))))))
-
-(define functional-multiplication
-  (lambda (vec1 vec2)
-    (apply + (map * vec1 vec2))))
-
-(define vector-composition
-  (lambda (matrix vec)
-    (let ([dim (matrix-dim-row matrix)])
-      (let kernel ([counter 0][matrix-final matrix])
-        (if (= counter dim)
-            null
-            (cons (functional-multiplication (car matrix-final) vec)
-                  (kernel 
-                   (+ 1 counter)
-                   (cdr matrix-final)
-                   )))))))
+          (m-multiply matrix matrix)
+          (m-multiply matrix (kernel (+ counter 1)))))))
 
 (define circle
   (lambda (image x-center y-center radius)
@@ -211,30 +192,33 @@
     
 
 (define add-scaled-ellipse!
-  (lambda (image base-layer left-x left-y width height aoe)
+  (lambda (image base-layer left top width height aoe stroke?)
     (copy-and-add-layer! image base-layer)
     (let ([temp-layer (get-top-layer image)])
       (image-select-ellipse! image REPLACE 
-                             (bound 0 (image-width image) (- left-x aoe))
-                             (bound 0 (image-height image) (- left-y aoe))
+                             (bound 0 (image-width image) (- left aoe))
+                             (bound 0 (image-height image) (- top aoe))
                              (+ (* 2 aoe) width)
                              (+ (* 2 aoe) height))
+      (when stroke? 
+        (repeat 20 context-set-brush! "2. Hardness 100" 9)
+        (image-stroke-selection! image))
       
       (scale-selection-into-new-layer!
-       temp-layer left-x left-y (+ left-x width) (+ left-y height))
+       temp-layer left top (+ left width) (+ top height))
       (gimp-image-remove-layer image temp-layer)
       (merge-floating-layer image (get-top-layer image) 1))))
 
 
 (define scale-selection-into-new-layer!
-  (lambda (temp-layer new-left-x new-left-y new-right-x new-right-y)
+  (lambda (temp-layer top-left-x top-left-y bot-right-x bot-right-y)
     (gimp-floating-sel-to-layer
        (car (gimp-item-transform-scale 
              temp-layer 
-             new-left-x 
-             new-left-y                    
-             new-right-x 
-             new-right-y)))))
+             top-left-x 
+             top-left-y                    
+             bot-right-x 
+             bot-right-y)))))
 
 (define merge-floating-layer
   (lambda (image layer-merge merge-type)
@@ -244,9 +228,16 @@
   (lambda (image layer repititions)
     (repeat repititions plug-in-blur 1 image layer)))
 
+(define magnifying-glass!
+  (lambda (image left top diameter factor)
+    (add-scaled-ellipse! 
+     image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
+    (context-update-displays!)))
+    
+
 (define rain-me!
   (lambda (image min-width min-height delta-width delta-height blur-degree aoe k)
-    (copy-and-add-layer! image (caadr (gimp-image-get-layers image)))
+    (copy-and-add-layer! image (get-top-layer image))
     (let* ([layers (cadr (gimp-image-get-layers image))]
            [base (cadr layers)]
            [blurred (car layers)])
@@ -261,8 +252,13 @@
                (random (image-height image))
                (+ min-width (random delta-width))
                (+ min-height (random delta-height))
-               aoe)
+               aoe
+               #f)
               (kernel (+ counter 1))))))))
+
+;(define texturize
+;  (lambda (image)
+
 
 (define copy-and-add-layer!
   (lambda (image layer)
@@ -298,4 +294,12 @@
 ;  (lambda (image-to selection)
 ;    (gimp-edit-cut selection)
 ;    (gimp-edit-paste )))
+
+
+(define pugbro (image-load "/home/fisherhe/Desktop/sadpug.jpg"))
+(image-show pugbro)
+(magnifying-glass! pugbro 530 400 200 40)
+;(rain-me! pugbro 5 5 15 15 50 20 100)
+ 
+;(reflective-ellipse-from-layer kitty 200 200 20 30 100)
 
