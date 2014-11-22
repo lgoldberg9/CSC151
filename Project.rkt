@@ -185,3 +185,25 @@
          (image-get-pixel image col row)
          ;               (irgb 0 0 0)))
          )))))
+
+(define reflective-circle-1
+  (lambda (image x-center y-center aoe radius)
+    (gimp-image-add-layer
+     image
+     (car (gimp-layer-copy
+           (caadr (gimp-image-get-layers image))
+           1))
+     0)
+    (circle image x-center y-center aoe)
+    (gimp-item-transform-scale 
+     (caadr (gimp-image-get-layers image))
+     (- x-center radius)
+     (- y-center radius)
+     (+ x-center radius)
+     (+ y-center radius))
+    ))
+
+;(define kitty (image-load "/home/fisherhe/Desktop/kitten.jpg"))
+;(image-show kitty)
+;(reflective-circle-1 kitty 200 200 100 50)
+
