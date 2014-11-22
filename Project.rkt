@@ -205,23 +205,36 @@
 ;         ;               (irgb 0 0 0)))
 ;         )))))
 
-(define reflective-ellipse-from-layer
-  (lambda (image base blurred left-x left-y width height aoe)
-    (copy-and-add-layer! image base)
+(define bound
+  (lambda (lower upper n)
+    (min (max lower n) upper)))
+    
+
+(define add-scaled-ellipse!
+  (lambda (image base-layer left-x left-y width height aoe)
+    (copy-and-add-layer! image base-layer)
     (let ([temp-layer (get-top-layer image)])
       (image-select-ellipse! image REPLACE 
-                             (- left-x aoe) 
-                             (- left-y aoe)
+                             (bound 0 (image-width image) (- left-x aoe))
+                             (bound 0 (image-height image) (- left-y aoe))
                              (+ (* 2 aoe) width)
                              (+ (* 2 aoe) height))
       
-      (gimp-floating-sel-to-layer
-       (car (gimp-item-transform-scale temp-layer left-x left-y 
-                                       (+ left-x width) (+ left-y height))))
+      (scale-selection-into-new-layer!
+       temp-layer left-x left-y (+ left-x width) (+ left-y height))
       (gimp-image-remove-layer image temp-layer)
-      (merge-floating-layer image (get-top-layer image) 1)
-      ;(display temp-layer) (newline) (display (gimp-image-get-layers image))
-      )))
+      (merge-floating-layer image (get-top-layer image) 1))))
+
+
+(define scale-selection-into-new-layer!
+  (lambda (temp-layer new-left-x new-left-y new-right-x new-right-y)
+    (gimp-floating-sel-to-layer
+       (car (gimp-item-transform-scale 
+             temp-layer 
+             new-left-x 
+             new-left-y                    
+             new-right-x 
+             new-right-y)))))
 
 (define merge-floating-layer
   (lambda (image layer-merge merge-type)
@@ -242,12 +255,12 @@
         (if (= counter k)
             (context-update-displays!)
             (let ()
-              (reflective-ellipse-from-layer 
-               image base blurred 
+              (add-scaled-ellipse!
+               image base 
                (random (image-width image))
                (random (image-height image))
-               (+ min-width (random delta-width)) 
-               (+ min-height (random delta-height))  
+               (+ min-width (random delta-width))
+               (+ min-height (random delta-height))
                aoe)
               (kernel (+ counter 1))))))))
 
@@ -286,7 +299,3 @@
 ;    (gimp-edit-cut selection)
 ;    (gimp-edit-paste )))
 
-
-(define image (image-load "/home/goldberg/Downloads/cameron-highlands.jpg"))
-(image-show image)
-;(reflective-ellipse-from-layer kitty 200 200 20 30 100)
