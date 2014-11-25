@@ -249,9 +249,21 @@
   (lambda (image layer-merge merge-type)
     (gimp-image-merge-down image layer-merge merge-type)))
 
-(define blur-image
+(define blur-image!
   (lambda (image layer repititions)
     (repeat repititions plug-in-blur 1 image layer)))
+
+(define copy-and-add-layer!
+  (lambda (image layer)
+    (gimp-image-add-layer 
+     image
+     (car (gimp-layer-copy layer 1))
+     0)))
+
+(define get-top-layer
+  (lambda (image)
+    (caadr (gimp-image-get-layers image))))
+
 
 (define distort!
   (lambda (image distort-lst aoe blur-degree)
@@ -259,7 +271,7 @@
                    3
                    (round (find-biggest-distortion image))
                    aoe blur-degree)
-    (blur-image image (get-top-layer image) blur-degree)))
+    (blur-image! image (get-top-layer image) blur-degree)))
 
 (define magnifying-glass!
   (lambda (image left top diameter factor)
@@ -267,13 +279,21 @@
      image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
     (context-update-displays!)))
 
+
+(define rain-me!
+  (lambda (image raindrop-lst aoe blur-degree)
+    (render-blobs! image raindrop-lst
+                   3
+                   (round (find-biggest-raindrop image))
+                   aoe blur-degree)))
+
 (define render-blobs!
   (lambda (image lst min-dimension max-dimension aoe blur-degree)
     (copy-and-add-layer! image (get-top-layer image))
     (let* ([layers (cadr (gimp-image-get-layers image))]
            [base (cadr layers)]
            [blurred (car layers)])
-      (blur-image image blurred blur-degree)
+      (blur-image! image blurred blur-degree)
       (let kernel ([remaining lst])
         (display (length remaining))
         (if (null? remaining)
@@ -290,23 +310,6 @@
                width height aoe #f)
               (kernel (cdr remaining))))))))
 
-(define rain-me!
-  (lambda (image raindrop-lst aoe blur-degree)
-    (render-blobs! image raindrop-lst
-                   3
-                   (round (find-biggest-raindrop image))
-                   aoe blur-degree)))
-
-(define copy-and-add-layer!
-  (lambda (image layer)
-    (gimp-image-add-layer 
-     image
-     (car (gimp-layer-copy layer 1))
-     0)))
-
-(define get-top-layer
-  (lambda (image)
-    (caadr (gimp-image-get-layers image))))
 
 (define find-biggest-raindrop
   (lambda (image)
