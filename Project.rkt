@@ -30,31 +30,43 @@
            (image-show (image-load "/home/goldberg/Pictures/daviscollage.png"))]
           [(= n 0)
            (image-show (image-load "/home/goldberg/Pictures/walkercollage.png"))]
+          ;[
+          ; ]
           [else
-           (master-series )]
+           (master-series n width height)]
           )))
 
 (define master-series
   (lambda (n width height)
-    0))
+    (let ([fractal (fractal-image-series n width height)])
+      (cond 
+        ;[
+        ; ]
+        ;[
+        ; ]
+        [else 
+         (rain-me! fractal (raindrop-inputs fractal) (determine-aoe n) (determine-blur n))]
+        ))))
 
 ; An version of image-series that generates various portions of the
-; mandelbrot set.  Not documented with the six P's because that's
+; fractal set.  Not documented with the six P's because that's
 ; part of the project, and this is sample code for the project.
-(define mandelbrot-image-series
+(define fractal-image-series
   (lambda (n width height)
     (let* (; Our default color.  Used when we hit max-recursions.
+           [FRACTAL-CHOICE "eagle-fractal"]
+           [ASSOC-FRACTAL (lookup-attributes FRACTAL-CHOICE fractal-table)]
            [DEFAULT (irgb 0 0 0)]
            ; The horizontal offset of the center from top-left.
            ; Use -2.0 for normal.  Might be based on n.
-           [HOFFSET (+ -2.0 (* 0.5 (mod n 3)))]
+           [HOFFSET ((list-ref ASSOC-FRACTAL 2) n)]
            ; The vertical offset of the center from top-left.
            ; Use -1.0 for normal.  Might be based on n.
-           [VOFFSET (+ -1.0 (* 0.25 (mod n 5)))]
+           [VOFFSET ((list-ref ASSOC-FRACTAL 3) n)]
            ; The horizontal scale.  Might be based on n
-           [HSCALE (- 1.0 HOFFSET)]
+           [HSCALE ((list-ref ASSOC-FRACTAL 4) HOFFSET)]
            ; The Vertical scale.  Might be based on n.
-           [VSCALE (- 1.0 VOFFSET)])
+           [VSCALE ((list-ref ASSOC-FRACTAL 5) VOFFSET)])
       (let (; Convert a point in the unit plane to a complex number within
             ; some more interesting range.  That range is determined by the
             ; parameters above.
@@ -65,10 +77,10 @@
          (lambda (col row)
            (let* ([c (complicate (unit-coord-x col width) 
                                  (unit-coord-y row height))]
-                  [s (steps-to-escape c)]
-                  [color (if (= s -1)
+                  [steps (steps-to-escape c ASSOC-FRACTAL)]
+                  [color (if (= steps -1)
                              DEFAULT
-                             (index-color (+ n s)))])
+                             (index-color (+ n steps)))])
              color))
          width height)))))
 
@@ -89,9 +101,9 @@
 (define dim-col
   (lambda (matrix)
     (let ([mcar (car matrix)])
-    (if (not (list? mcar))
-        (length matrix)
-        (length mcar)))))
+      (if (not (list? mcar))
+          (length matrix)
+          (length mcar)))))
 
 (define chaotic-chain
   (lambda (matrix vec power)
@@ -147,7 +159,6 @@
     (matrix-multiplication 
      (matrix-multiplication matrix1 matrix2) (transpose matrix1))))
 
-
 (define raindrop-inputs
   (lambda (image)
     (let ([num (num-of-inputs image)])
@@ -175,6 +186,10 @@
             (cons (chaotic-chain chaotic-matrix-4x4-2 initial-magnify-vector power) 
                   (kernel (+ power 1))))))))
 
+(define num-of-inputs
+  (lambda (image)
+    (min 200 (round (+ (* 0.000161411 (image-area image)) 40.2778)))))
+
 ;;; Procedure:
 ;;;   steps-to-escape
 ;;; Parameters:
@@ -196,16 +211,18 @@
 ;;;   If steps = -1, then complex does not "escape" within max-recursions. That is,
 ;;;     for all i, 0 <= i <= max-recursions, distance((f^i)(complex), 0) < 2.
 (define steps-to-escape
-  (lambda (complex-number)
-    (let kernel ([z complex-number]
-                 [steps 0])
-      (cond
-        [(>= (complex-distance-squared z 0) 4)
-         steps]
-        [(>= steps max-recursions)
-         -1]
-        [else
-         (kernel (+ (real-part (* z z z)) (* 0+i (imag-part (/ z z z)))) (+ steps 1))]))))
+  (lambda (complex-number fractal)
+    (let ([proc (cadr fractal)])
+      (let kernel ([z complex-number]
+                   [steps 0])
+        (cond
+          [(>= (complex-distance-squared z 0) 4)
+           steps]
+          [(>= steps max-recursions)
+           -1]
+          [else
+           (kernel (proc complex-number z) (+ steps 1))]
+          )))))
 
 ; +-------------------+----------------------------------------------
 ; | Effect Procedures |
@@ -229,7 +246,6 @@
       (when stroke? 
         (repeat 20 context-set-brush! "2. Hardness 100" 9)
         (image-stroke-selection! image))
-      
       (scale-selection-into-new-layer!
        temp-layer left top (+ left width) (+ top height))
       (gimp-image-remove-layer image temp-layer)
@@ -249,9 +265,51 @@
   (lambda (image layer-merge merge-type)
     (gimp-image-merge-down image layer-merge merge-type)))
 
-(define blur-image!
+(define blur-image
   (lambda (image layer repititions)
     (repeat repititions plug-in-blur 1 image layer)))
+
+(define distort!
+  (lambda (image distort-lst aoe blur-degree)
+    (render-blobs! image distort-lst
+                   3
+                   (round (find-biggest-distortion image))
+                   aoe blur-degree)
+    (blur-image image (get-top-layer image) blur-degree)))
+
+(define magnifying-glass!
+  (lambda (image left top diameter factor)
+    (add-scaled-ellipse! 
+     image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
+    (context-update-displays!)))
+
+(define render-blobs!
+  (lambda (image lst min-dimension max-dimension aoe blur-degree)
+    (copy-and-add-layer! image (get-top-layer image))
+    (let* ([layers (cadr (gimp-image-get-layers image))]
+           [base (cadr layers)]
+           [blurred (car layers)])
+      (blur-image image blurred blur-degree)
+      (let kernel ([remaining lst])
+        (if (null? remaining)
+            (context-update-displays!)
+            (let* ([raw-blob (car remaining)]
+                   [blob (map (o round car) raw-blob)]
+                   [width (+ min-dimension (modulo (list-ref blob 2) max-dimension))]
+                   [height (+ min-dimension (modulo (list-ref blob 3) max-dimension))])
+              (add-scaled-ellipse!
+               image base
+               (modulo (list-ref blob 0) (- (image-width image) width))
+               (modulo (list-ref blob 1) (- (image-height image) height))
+               width height aoe #f)
+              (kernel (cdr remaining))))))))
+
+(define rain-me!
+  (lambda (image raindrop-lst aoe blur-degree)
+    (render-blobs! image raindrop-lst
+                   3
+                   (round (find-biggest-raindrop image))
+                   aoe blur-degree)))
 
 (define copy-and-add-layer!
   (lambda (image layer)
@@ -263,53 +321,6 @@
 (define get-top-layer
   (lambda (image)
     (caadr (gimp-image-get-layers image))))
-
-
-(define distort!
-  (lambda (image distort-lst aoe blur-degree)
-    (render-blobs! image distort-lst
-                   3
-                   (round (find-biggest-distortion image))
-                   aoe blur-degree)
-    (blur-image! image (get-top-layer image) blur-degree)))
-
-(define magnifying-glass!
-  (lambda (image left top diameter factor)
-    (add-scaled-ellipse! 
-     image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
-    (context-update-displays!)))
-
-
-(define rain-me!
-  (lambda (image raindrop-lst aoe blur-degree)
-    (render-blobs! image raindrop-lst
-                   3
-                   (round (find-biggest-raindrop image))
-                   aoe blur-degree)))
-
-(define render-blobs!
-  (lambda (image lst min-dimension max-dimension aoe blur-degree)
-    (copy-and-add-layer! image (get-top-layer image))
-    (let* ([layers (cadr (gimp-image-get-layers image))]
-           [base (cadr layers)]
-           [blurred (car layers)])
-      (blur-image! image blurred blur-degree)
-      (let kernel ([remaining lst])
-        (display (length remaining))
-        (if (null? remaining)
-            (context-update-displays!)
-            (let* ([raw-blob (car remaining)]
-                   [blob (map (o round car) raw-blob)]
-                   [width (+ min-dimension (modulo (list-ref blob 2) max-dimension))]
-                   [height (+ min-dimension (modulo (list-ref blob 3) max-dimension))])
-              (display  (modulo (list-ref blob 0) (- (image-width image) width)))
-              (add-scaled-ellipse!
-               image base
-               (modulo (list-ref blob 0) (- (image-width image) width))
-               (modulo (list-ref blob 1) (- (image-height image) height))
-               width height aoe #f)
-              (kernel (cdr remaining))))))))
-
 
 (define find-biggest-raindrop
   (lambda (image)
@@ -325,20 +336,58 @@
 
 (define fractal-table
   (list
-   (list "eagle-fractal" (lambda (z) 1))
-   (list "burning-ship")
-   (list "mandelbrot")
+   ;;;  '(name proc HOFFSET VOFFSET HSCALE VSCALE)
+   (list "blade" 
+         (lambda (c z) (+ c (- (real-part (expt z 3)) 
+                             (* 0+i (imag-part (/ z z z))))))
+         (lambda (n)
+           (+ -3.0 (* 0.5 (mod n 7))))
+         (lambda (n)
+           (+ -3.0 (* 0.5 (mod n 7))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))
+   (list "burning-ship" 
+         (lambda (c z) 
+           (+ (square 
+               (+ (abs (real-part z)) (* 0+i (abs (imag-part z)))))
+              c)) )
+   (list "mandelbrot" 
+         (lambda (c z) 
+           (+ (* z z) c))
+         (lambda (n)
+           (+ -2.0 (* 0.5 (mod n 3))))
+         (lambda (n)
+           (+ -1.0 (* 0.25 (mod n 5))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))
    (list "pythagoras-tree")
-   (list "julia")
+   (list "julia" (lambda (c z) (- (* z z) 1)))
    (list "attractor")
-   (list "")
-   (list "")
-   (list "")
+   (list "eagle")
+   (list "newton")
+   (list "sphere")
    (list "")))
 
-(define num-of-inputs
-  (lambda (image)
-    (round (- (* 87.7275 (log (image-area image))) 669))))
+(define lookup-attributes
+  (lambda (string table)
+    (let ([assoc-result (assoc string table)])
+      (if (equal? assoc-result #f)
+          (error "fractal not valid.")
+          assoc-result))))
+
+(define assoc
+  (lambda (key alist)
+    (cond
+      [(null? alist) 
+       #f]
+      [(equal? key (car (car alist))) 
+       (car alist)]
+      [else 
+       (assoc key (cdr alist))])))
 
 (define bound
   (lambda (lower upper n)
