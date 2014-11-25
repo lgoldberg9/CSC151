@@ -54,7 +54,9 @@
 (define fractal-image-series
   (lambda (n width height)
     (let* (; Our default color.  Used when we hit max-recursions.
-           [FRACTAL-CHOICE "eagle-fractal"]
+           [FRACTAL-CHOICE (car 
+                            (list-ref fractal-table 
+                                      (modulo (round (/ n 4)) (length fractal-table))))]
            [ASSOC-FRACTAL (lookup-attributes FRACTAL-CHOICE fractal-table)]
            [DEFAULT (irgb 0 0 0)]
            ; The horizontal offset of the center from top-left.
@@ -339,7 +341,7 @@
    ;;;  '(name proc HOFFSET VOFFSET HSCALE VSCALE)
    (list "blade" 
          (lambda (c z) (+ c (- (real-part (expt z 3)) 
-                             (* 0+i (imag-part (/ z z z))))))
+                               (* 0+i (imag-part (/ z z z))))))
          (lambda (n)
            (+ -3.0 (* 0.5 (mod n 7))))
          (lambda (n)
@@ -352,7 +354,15 @@
          (lambda (c z) 
            (+ (square 
                (+ (abs (real-part z)) (* 0+i (abs (imag-part z)))))
-              c)) )
+              c))
+         (lambda (n)
+           (+ -2.0 (* 0.5 (mod n 3))))
+         (lambda (n)
+           (+ -2.0 (* 0.25 (mod n 5))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))
    (list "mandelbrot" 
          (lambda (c z) 
            (+ (* z z) c))
@@ -365,12 +375,44 @@
          (lambda (VOFFSET)
            (- 1.0 VOFFSET)))
    (list "pythagoras-tree")
-   (list "julia" (lambda (c z) (- (* z z) 1)))
+   (list "julia" 
+         (lambda (c z) 
+           (- (* z z) 1)))
    (list "attractor")
    (list "eagle")
-   (list "newton")
-   (list "sphere")
-   (list "")))
+   (list "void"
+         (lambda (c z)
+           (- (expt z (real-part c)) 1))
+         (lambda (n)
+           (+ -4.0 (* 0.5 (mod n 9))))
+         (lambda (n)
+           (+ -4.0 (* 0.5 (mod n 9))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))
+   (list "sphere"
+         (lambda (c z) 
+           (* z z))
+         (lambda (n)
+           (+ -3.0 (* 0.25 (mod n 7))))
+         (lambda (n)
+           (+ -3.0 (* 0.25 (mod n 7))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))
+   (list "newton"
+         (lambda (c z)
+           (- (expt z 3) 1))
+         (lambda (n)
+           (+ 0 (* 0.25 (mod n 3))))
+         (lambda (n)
+           (+ 0 (* 0.25 (mod n 3))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))))
 
 (define lookup-attributes
   (lambda (string table)
@@ -533,9 +575,10 @@
 ;;;     be different.
 (define index-color
   (lambda (i)
-    (hsv2irgb (* i (/ 360.0 ))
-              (+ .5 (* .1 (mod i 6)))
-              (+ .5 (* .05 (mod i 11))))))
+    (hsv2irgb ;;; Change first parameter to hsv2irgb to change the color scheme of the fractals.
+     (* 180 (+ 1 (* 2 (sin i))))
+     (+ .5 (* .1 (mod i 6)))
+     (+ .5 (* .05 (mod i 11))))))
 
 (define taxicab-distance
   (lambda (col1 row1 col2 row2)
