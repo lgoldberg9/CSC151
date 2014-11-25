@@ -38,144 +38,74 @@
   (lambda (n width height)
     0))
 
-; +---------+--------------------------------------------------------
-; | Helpers |
-; +---------+
+; An version of image-series that generates various portions of the
+; mandelbrot set.  Not documented with the six P's because that's
+; part of the project, and this is sample code for the project.
+(define mandelbrot-image-series
+  (lambda (n width height)
+    (let* (; Our default color.  Used when we hit max-recursions.
+           [DEFAULT (irgb 0 0 0)]
+           ; The horizontal offset of the center from top-left.
+           ; Use -2.0 for normal.  Might be based on n.
+           [HOFFSET (+ -2.0 (* 0.5 (mod n 3)))]
+           ; The vertical offset of the center from top-left.
+           ; Use -1.0 for normal.  Might be based on n.
+           [VOFFSET (+ -1.0 (* 0.25 (mod n 5)))]
+           ; The horizontal scale.  Might be based on n
+           [HSCALE (- 1.0 HOFFSET)]
+           ; The Vertical scale.  Might be based on n.
+           [VSCALE (- 1.0 VOFFSET)])
+      (let (; Convert a point in the unit plane to a complex number within
+            ; some more interesting range.  That range is determined by the
+            ; parameters above.
+            [complicate (lambda (x y)
+                          (+ (+ HOFFSET (* HSCALE x))
+                             (* 0+i (+ VOFFSET (* VSCALE y)))))])
+        (image-compute
+         (lambda (col row)
+           (let* ([c (complicate (unit-coord-x col width) 
+                                 (unit-coord-y row height))]
+                  [s (steps-to-escape c)]
+                  [color (if (= s -1)
+                             DEFAULT
+                             (index-color (+ n s)))])
+             color))
+         width height)))))
 
-(define fractal-table
-  (list
-   (list "eagle-fractal" (lambda (z) 1))
-   (list "burning-ship")
-   (list "mandelbrot")
-   (list "pythagoras-tree")
-   (list "julia")
-   (list "attractor")
-   (list "")
-   (list "")
-   (list "")
-   (list "")))
+(define darp
+  car)
 
-; +-----------+------------------------------------------------------
-; | Constants |
-; +-----------+
+(define derp
+  cdr)
 
-;;; Constant:
-;;;   max-recursions
-;;; Type:
-;;;   Integer
-;;; Description:
-;;;   The maximum number of iterations of the function we do before
-;;;   giving up.
-(define max-recursions 50)
+; +----------------------+-------------------------------------------
+; | Algorithm Procedures |
+; +----------------------+
 
-(define taxicab-distance
-  (lambda (col1 row1 col2 row2)
-    (+ (* 1 (abs (- col2 col1))) (abs (- row2 row1)))))
-
-(define taxicab-distance1
-  (lambda (col1 row1 col2 row2)
-    (+ (* 1 (abs (- col2 (/ (+ row1 row2) 2)))) 
-       (abs (- row2 (/ (+ col1 col2) 2))))))
-
-(define taxicab-distance2
-  (lambda (col1 row1 col2 row2)
-    (+ (* 1 (abs (- col2 (/ (+ row1 row2) 2)))) 
-       (abs (- row2 (/ (- col1 col2) 2))))))
-
-(define sin-distance1
-  (lambda (col1 row1 col2 row2)
-    (+ 100 (* 1 (tan (- col2 (/ (+ row1 row2) 2)))) 
-       (* 1 (tan (- row2 (/ (+ col1 col2) 2)))))))
-
-(define euclidean-distance
-  (lambda (col1 row1 col2 row2)
-    (sqrt (+ (square (- col2 col1)) (square (- row2 row1))))))
-
-(define deterministic-distance
-  (lambda (col1 row1 col2 row2)
-    (abs (- (* col1 row2) (* col2 row1)))))
-
-;(image-show (image-compute
-;             (lambda (col row)
-;               (if (and (<= (sin-distance1 200 200 col row) 100)
-;             ;           (<= (taxicab-distance2 400 400 col row) 100)
-;                        )
-;                   (irgb (* 1/2 col) 0 (* 1/2 row))
-;                   (irgb 0 0 0)))
-;             400 400))
-
-(define m-add
-  (lambda (v1 v2)
-    (cond
-      ;[()]
-      ;[]
-      ;[]
-      [else 
-       (let kernel ([lst1 v1][lst2 v2])
-         (if (and (null? lst1) (null? lst2))
-             null
-             (cons (+ (car lst1) (car lst2)) 
-                   (kernel (cdr lst1) (cdr lst2)))))]
-      )))
-
-(define m-scale
-  (lambda (scalar v)
-    (cond
-      [(not (number? scalar))
-       (error "m-scale: expects number for scalar, given" scalar)]
-      [(not (list? v))
-       (error "m-scale: expects list for v, given" v)]
-      [else
-       (let kernel ([remaining v])
-         (if (null? remaining)
-             null
-             (cons (* (car remaining) scalar) (kernel (cdr remaining)))))]
-      )))
-
-(define matrix-dim-col
+(define dim-row
   (lambda (matrix)
-    (let kernel ([sum-so-far 0][remaining-matrix (car matrix)])
-      (if (null? remaining-matrix)
-          sum-so-far
-          (kernel (+ sum-so-far 1) (cdr remaining-matrix))))))
+    (length matrix)))
 
-(define matrix-dim-row
+(define dim-col
   (lambda (matrix)
-    (let kernel ([sum-so-far 0][remaining-matrix matrix])
-      (if (null? remaining-matrix)
-          sum-so-far
-          (kernel (+ sum-so-far 1) (cdr remaining-matrix))
-          ))))
+    (let ([mcar (car matrix)])
+    (if (not (list? mcar))
+        (length matrix)
+        (length mcar)))))
 
 (define chaotic-chain
   (lambda (matrix vec power)
     (let kernel ([chaotic-vec vec][counter 0])
       (if (= counter power)
           chaotic-vec
-          (kernel (vector-composition matrix chaotic-vec) (+ 1 counter))))))
-
-(define functional-multiplication
-  (lambda (vec1 vec2)
-    (apply + (map * vec1 vec2))))
-
-(define vector-composition
-  (lambda (matrix vec)
-    (let ([dim (matrix-dim-row matrix)])
-      (let kernel ([counter 0][matrix-final matrix])
-        (if (= counter dim)
-            null
-            (cons (functional-multiplication (car matrix-final) vec)
-                  (kernel 
-                   (+ 1 counter)
-                   (cdr matrix-final)
-                   )))))))
+          (kernel (matrix-multiplication matrix chaotic-vec) (+ 1 counter))))))
 
 (define matrix-multiplication ;;; Cite Stone.
   (lambda (left right)
-    (let ([left-dim-row (length left)]
-          [right-dim-row (length right)]
-          [left-dim-col (length (car left))]
-          [right-dim-col (length (car right))])
+    (let ([left-dim-row (dim-row left)]
+          [right-dim-row (dim-row right)]
+          [left-dim-col (dim-col left)]
+          [right-dim-col (dim-col right)])
       (if (= left-dim-col right-dim-row)
           (let left-row ([left-row-cycle 0])
             (if (= left-dim-row left-row-cycle)
@@ -218,10 +148,68 @@
      (matrix-multiplication matrix1 matrix2) (transpose matrix1))))
 
 
-(define bound
-  (lambda (lower upper n)
-    (min (max lower n) upper)))
-    
+(define raindrop-inputs
+  (lambda (image)
+    (let ([num (num-of-inputs image)])
+      (let kernel ([power 0])
+        (if (= power num)
+            null
+            (cons (chaotic-chain chaotic-matrix-4x4-1 initial-aoe-vector power) 
+                  (kernel (+ power 1))))))))
+
+(define magnify-inputs
+  (lambda (image)
+    (let ([num (num-of-inputs image)])
+      (let kernel ([power 0])
+        (if (= power num)
+            null
+            (cons (chaotic-chain chaotic-matrix-3x3 initial-magnify-vector power) 
+                  (kernel (+ power 1))))))))
+
+(define distortion-inputs
+  (lambda (image)
+    (let ([num (num-of-inputs image)])
+      (let kernel ([power 0])
+        (if (= power num)
+            null
+            (cons (chaotic-chain chaotic-matrix-4x4-2 initial-magnify-vector power) 
+                  (kernel (+ power 1))))))))
+
+;;; Procedure:
+;;;   steps-to-escape
+;;; Parameters:
+;;;   complex, a complex number.
+;;;   fractal, a procedure.
+;;; Purpose:
+;;;   Counts the number of times we can repeatedly compute fractal
+;;;   before hitting max-recursions or getting a number 
+;;;   that is more than 2 away from the complex origin.  If we hit
+;;;   max-recursions, we return a special value (-1).
+;;; Produces:
+;;;   steps, an integer
+;;; Preconditions:
+;;;   Let f(z) be fractal.  (We use this in the postconditions.)
+;;; Postconditions:
+;;;   If steps >= 0, then complex "escapes" after exactly steps iterations.  That is,
+;;;     distance((f^s)(complex), 0) >= 2 and for all i, 0 <= i < s, 
+;;;     distance((f^i)(complex), 0) < 2.
+;;;   If steps = -1, then complex does not "escape" within max-recursions. That is,
+;;;     for all i, 0 <= i <= max-recursions, distance((f^i)(complex), 0) < 2.
+(define steps-to-escape
+  (lambda (complex-number)
+    (let kernel ([z complex-number]
+                 [steps 0])
+      (cond
+        [(>= (complex-distance-squared z 0) 4)
+         steps]
+        [(>= steps max-recursions)
+         -1]
+        [else
+         (kernel (+ (real-part (* z z z)) (* 0+i (imag-part (/ z z z)))) (+ steps 1))]))))
+
+; +-------------------+----------------------------------------------
+; | Effect Procedures |
+; +-------------------+
 
 (define add-scaled-ellipse!
   (lambda (image base-layer left top width height aoe stroke?)
@@ -247,16 +235,15 @@
       (gimp-image-remove-layer image temp-layer)
       (merge-floating-layer image (get-top-layer image) 1))))
 
-
 (define scale-selection-into-new-layer!
   (lambda (temp-layer top-left-x top-left-y bot-right-x bot-right-y)
     (gimp-floating-sel-to-layer
-       (car (gimp-item-transform-scale 
-             temp-layer 
-             top-left-x 
-             top-left-y                    
-             bot-right-x 
-             bot-right-y)))))
+     (car (gimp-item-transform-scale 
+           temp-layer 
+           top-left-x 
+           top-left-y                    
+           bot-right-x 
+           bot-right-y)))))
 
 (define merge-floating-layer
   (lambda (image layer-merge merge-type)
@@ -273,15 +260,13 @@
                    (round (find-biggest-distortion image))
                    aoe blur-degree)
     (blur-image image (get-top-layer image) blur-degree)))
-     
-    
 
 (define magnifying-glass!
   (lambda (image left top diameter factor)
     (add-scaled-ellipse! 
      image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
     (context-update-displays!)))
-    
+
 (define render-blobs!
   (lambda (image lst min-dimension max-dimension aoe blur-degree)
     (copy-and-add-layer! image (get-top-layer image))
@@ -294,7 +279,7 @@
         (if (null? remaining)
             (context-update-displays!)
             (let* ([raw-blob (car remaining)]
-                   [blob (map round raw-blob)]
+                   [blob (map (o round car) raw-blob)]
                    [width (+ min-dimension (modulo (list-ref blob 2) max-dimension))]
                    [height (+ min-dimension (modulo (list-ref blob 3) max-dimension))])
               (display  (modulo (list-ref blob 0) (- (image-width image) width)))
@@ -304,29 +289,13 @@
                (modulo (list-ref blob 1) (- (image-height image) height))
                width height aoe #f)
               (kernel (cdr remaining))))))))
-    
-; raindrop-list: (list (list left top added-width added-height))
+
 (define rain-me!
   (lambda (image raindrop-lst aoe blur-degree)
     (render-blobs! image raindrop-lst
                    3
                    (round (find-biggest-raindrop image))
                    aoe blur-degree)))
-
-(define find-biggest-raindrop
-  (lambda (image)
-    (- (* 4.5 (log (image-area image))) 18.5)))
-
-(define find-biggest-distortion
-  (lambda (image)
-    (+ (* 0.0000895644 (image-area image)) 11.3735)))
-    
-    
-    
-              
-;(define texturize
-;  (lambda (image)
-
 
 (define copy-and-add-layer!
   (lambda (image layer)
@@ -339,47 +308,56 @@
   (lambda (image)
     (caadr (gimp-image-get-layers image))))
 
-;(define rain-onto-layer
-;  (lambda (n image layer min-width min-height delta-width delta-height aoe)
-;   (let kernel ([countdown n])
-;      (if (= 0 n)
-;          (let ()
-;            (image-select-nothing!)
-;            (context-update-displays!))
-;          (let ()
-;            (reflective-ellipse-from-layer
-;             image
-;             layer
-;             (random (image-width image))
-;             (random (image-height image))
-;             (+ min-width (random delta-width))
-;             (+ min-height (random delta-height))
-;             aoe)
-;            (kernel (- countdown 1))
-;            )))))
+(define find-biggest-raindrop
+  (lambda (image)
+    (- (* 4.5 (log (image-area image))) 18.5)))
 
-;(define moving-items
-;  (lambda (image-to selection)
-;    (gimp-edit-cut selection)
-;    (gimp-edit-paste )))
+(define find-biggest-distortion
+  (lambda (image)
+    (+ (* 0.0000895644 (image-area image)) 11.3735)))
 
+; +---------------+--------------------------------------------------
+; | Minor Helpers |
+; +---------------+
 
-;(define pugbro (image-load "/home/fisherhe/Desktop/sadpug.jpg"))
-;(image-show pugbro)
-;(magnifying-glass! pugbro 530 400 200 40)
-;(rain-me! pugbro 5 5 15 15 50 20 100)
- 
-;(reflective-ellipse-from-layer kitty 200 200 20 30 100)
+(define fractal-table
+  (list
+   (list "eagle-fractal" (lambda (z) 1))
+   (list "burning-ship")
+   (list "mandelbrot")
+   (list "pythagoras-tree")
+   (list "julia")
+   (list "attractor")
+   (list "")
+   (list "")
+   (list "")
+   (list "")))
 
-;;; Constant:
-;;;   MAX_ITERATIONS
-;;; Type:
-;;;   Integer
-;;; Description:
-;;;   The maximum number of iterations of the function we do before
-;;;   giving up.
-(define MAX_ITERATIONS 50)
+(define num-of-inputs
+  (lambda (image)
+    (round (- (* 87.7275 (log (image-area image))) 669))))
 
+(define bound
+  (lambda (lower upper n)
+    (min (max lower n) upper)))
+
+(define image-area
+  (lambda (image)
+    (* (image-width image) (image-height image))))
+
+(define determine-aoe
+  (lambda (n)
+    (let ([mod-aoe (modulo (* n 7) 100)])
+      (if (> 10 mod-aoe)
+          (+ mod-aoe)
+          mod-aoe))))
+
+(define determine-blur
+  (lambda (n)
+    (let ([mod-blur (modulo (* n 13) 100)])
+      (if (> 5 mod-blur)
+          (+ 5 mod-blur)
+          mod-blur))))
 
 ;;; Procedure:
 ;;;   unit-coord-x
@@ -440,37 +418,9 @@
     (+ (square (- (real-part complex1) (real-part complex2)))
        (square (- (imag-part complex1) (imag-part complex2))))))
 
-;;; Procedure:
-;;;   steps-to-escape
-;;; Parameters:
-;;;   complex, a complex number.
-;;;   fractal, a procedure.
-;;; Purpose:
-;;;   Counts the number of times we can repeatedly compute fractal
-;;;   before hitting max-recursions or getting a number 
-;;;   that is more than 2 away from the complex origin.  If we hit
-;;;   max-recursions, we return a special value (-1).
-;;; Produces:
-;;;   steps, an integer
-;;; Preconditions:
-;;;   Let f(z) be fractal.  (We use this in the postconditions.)
-;;; Postconditions:
-;;;   If steps >= 0, then complex "escapes" after exactly steps iterations.  That is,
-;;;     distance((f^s)(complex), 0) >= 2 and for all i, 0 <= i < s, 
-;;;     distance((f^i)(complex), 0) < 2.
-;;;   If steps = -1, then complex does not "escape" within max-recursions. That is,
-;;;     for all i, 0 <= i <= max-recursions, distance((f^i)(complex), 0) < 2.
-(define steps-to-escape
-  (lambda (complex-number)
-    (let kernel ([z complex-number]
-                 [steps 0])
-      (cond
-        [(>= (complex-distance-squared z 0) 4)
-         steps]
-        [(>= steps max-recursions)
-         -1]
-        [else
-         (kernel (+ (real-part (* z z z)) (* 0+i (imag-part (/ z z z)))) (+ steps 1))]))))
+; +----------+-------------------------------------------------------
+; | Textures |
+; +----------+
 
 ;;; Procedure:
 ;;;   hsv2irgb
@@ -535,76 +485,61 @@
               (+ .5 (* .1 (mod i 6)))
               (+ .5 (* .05 (mod i 11))))))
 
-; An version of image-series that generates various portions of the
-; mandelbrot set.  Not documented with the six P's because that's
-; part of the project, and this is sample code for the project.
-(define mandelbrot-image-series
-  (lambda (n width height)
-    (let* (; Our default color.  Used when we hit max-recursions.
-           [DEFAULT (irgb 0 0 0)]
-           ; The horizontal offset of the center from top-left.
-           ; Use -2.0 for normal.  Might be based on n.
-           [HOFFSET (+ -2.0 (* 0.5 (mod n 3)))]
-           ; The vertical offset of the center from top-left.
-           ; Use -1.0 for normal.  Might be based on n.
-           [VOFFSET (+ -1.0 (* 0.25 (mod n 5)))]
-           ; The horizontal scale.  Might be based on n
-           [HSCALE (- 1.0 HOFFSET)]
-           ; The Vertical scale.  Might be based on n.
-           [VSCALE (- 1.0 VOFFSET)])
-      (let (; Convert a point in the unit plane to a complex number within
-            ; some more interesting range.  That range is determined by the
-            ; parameters above.
-            [complicate (lambda (x y)
-                          (+ (+ HOFFSET (* HSCALE x))
-                             (* 0+i (+ VOFFSET (* VSCALE y)))))])
-        (image-compute
-         (lambda (col row)
-           (let* ([c (complicate (unit-coord-x col width) 
-                                 (unit-coord-y row height))]
-                  [s (steps-to-escape c)]
-                  [color (if (= s -1)
-                             DEFAULT
-                             (index-color (+ n s)))])
-             color))
-         width height)))))
+(define taxicab-distance
+  (lambda (col1 row1 col2 row2)
+    (+ (* 1 (abs (- col2 col1))) (abs (- row2 row1)))))
 
-(define raindrop-inputs
-  (lambda (image)
-    (let ([num (num-of-inputs image)])
-      (let kernel ([power 0])
-        (if (= power num)
-            null
-            (cons (chaotic-chain chaotic-matrix-4x4-1 initial-aoe-vector power) 
-                  (kernel (+ power 1))))))))
+(define taxicab-distance1
+  (lambda (col1 row1 col2 row2)
+    (+ (* 1 (abs (- col2 (/ (+ row1 row2) 2)))) 
+       (abs (- row2 (/ (+ col1 col2) 2))))))
 
-(define magnify-inputs
-  (lambda (image)
-    (let ([num (num-of-inputs image)])
-      (let kernel ([power 0])
-        (if (= power num)
-            null
-            (cons (chaotic-chain chaotic-matrix-3x3 initial-magnify-vector power) 
-                  (kernel (+ power 1))))))))
+(define taxicab-distance2
+  (lambda (col1 row1 col2 row2)
+    (+ (* 1 (abs (- col2 (/ (+ row1 row2) 2)))) 
+       (abs (- row2 (/ (- col1 col2) 2))))))
 
-(define distortion-inputs
-  (lambda (image)
-    (let ([num (num-of-inputs image)])
-      (let kernel ([power 0])
-        (if (= power num)
-            null
-            (cons (chaotic-chain chaotic-matrix-4x4-2 initial-magnify-vector power) 
-                  (kernel (+ power 1))))))))
+(define sin-distance1
+  (lambda (col1 row1 col2 row2)
+    (+ 100 (* 1 (tan (- col2 (/ (+ row1 row2) 2)))) 
+       (* 1 (tan (- row2 (/ (+ col1 col2) 2)))))))
 
-(define num-of-inputs
-  (lambda (image)
-    (round (- (* 87.7275 (log (image-area image))) 669))))
+(define euclidean-distance
+  (lambda (col1 row1 col2 row2)
+    (sqrt (+ (square (- col2 col1)) (square (- row2 row1))))))
+
+(define deterministic-distance
+  (lambda (col1 row1 col2 row2)
+    (abs (- (* col1 row2) (* col2 row1)))))
+
+;(image-show (image-compute
+;             (lambda (col row)
+;               (if (and (<= (sin-distance1 200 200 col row) 100)
+;             ;           (<= (taxicab-distance2 400 400 col row) 100)
+;                        )
+;                   (irgb (* 1/2 col) 0 (* 1/2 row))
+;                   (irgb 0 0 0)))
+;             400 400))
+
+
+; +-----------+------------------------------------------------------
+; | Constants |
+; +-----------+
+
+;;; Constant:
+;;;   max-recursions
+;;; Type:
+;;;   Integer
+;;; Description:
+;;;   The maximum number of iterations of the function we do before
+;;;   giving up.
+(define max-recursions 50)
 
 (define initial-aoe-vector
-  (list 0 0 3 7))
+  (list (list 0) (list 0) (list 3) (list 7)))
 
 (define initial-magnify-vector
-  (list 0 0 20))
+  (list (list 0) (list 0) (list 20)))
 
 (define chaotic-matrix-3x3
   (list (list 1 1 0)
@@ -622,30 +557,4 @@
         (list 1 2 5 0.5) 
         (list 0 1 4 0.002) 
         (list 1 3 3 7)))
-
-(define image-area
-  (lambda (image)
-    (* (image-width image) (image-height image))))
-
-(define determine-aoe
-  (lambda (n)
-    (let ([mod-aoe (modulo (* n 7) 100)])
-      (if (> 10 mod-aoe)
-          (+ mod-aoe)
-          mod-aoe))))
-
-(define determine-blur
-  (lambda (n)
-    (let ([mod-blur (modulo (* n 13) 100)])
-      (if (> 5 mod-blur)
-          (+ 5 mod-blur)
-          mod-blur))))
-
-
-
-(define darp
-  car)
-
-(define derp
-  cdr)
 
