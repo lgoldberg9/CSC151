@@ -44,7 +44,7 @@
 
 (define fractal-table
   (list
-   (list "eagle-fractal")
+   (list "eagle-fractal" (lambda (z) 1))
    (list "burning-ship")
    (list "mandelbrot")
    (list "pythagoras-tree")
@@ -59,11 +59,14 @@
 ; | Constants |
 ; +-----------+
 
-(define darp
-  car)
-
-(define derp
-  cdr)
+;;; Constant:
+;;;   max-recursions
+;;; Type:
+;;;   Integer
+;;; Description:
+;;;   The maximum number of iterations of the function we do before
+;;;   giving up.
+(define max-recursions 50)
 
 (define taxicab-distance
   (lambda (col1 row1 col2 row2)
@@ -144,12 +147,12 @@
           (kernel (+ sum-so-far 1) (cdr remaining-matrix))
           ))))
 
-(define markov-chain
+(define chaotic-chain
   (lambda (matrix vec power)
-    (let kernel ([markov-vec vec][counter 0])
+    (let kernel ([chaotic-vec vec][counter 0])
       (if (= counter power)
-          markov-vec
-          (kernel (vector-composition matrix markov-vec) (+ 1 counter))))))
+          chaotic-vec
+          (kernel (vector-composition matrix chaotic-vec) (+ 1 counter))))))
 
 (define functional-multiplication
   (lambda (vec1 vec2)
@@ -214,200 +217,6 @@
     (matrix-multiplication 
      (matrix-multiplication matrix1 matrix2) (transpose matrix1))))
 
-(define circle
-  (lambda (image x-center y-center radius)
-    (let ([diameter (* 2 radius)])
-      (image-select-ellipse! image REPLACE 
-                             (- x-center radius) 
-                             (- y-center radius) 
-                             diameter diameter))))
-
-(define rad->degrees
-  (lambda (angle) ;;; Converts an angle from radians to degrees.
-    (* angle (/ 180 pi))))
-
-(define degrees->rad
-  (lambda (angle) ;;; Converts an angle from degrees to radians.
-    (* angle (/ pi 180))))
-
-(define polar-coords
-  (lambda (x-center y-center col row)
-    (list (euclidean-distance x-center y-center col row)
-          (cond
-            [(= row y-center) ;;; Point on x-axis
-             0]
-            [(= col x-center) ;;; Point on y-axis
-             (/ pi 2)]
-            [else
-             (let ([arctan (atan (/ (- row y-center) (- col x-center)))])
-               (cond 
-                 [(and (> row y-center) (> x-center col)) ;;; Second Quadrant
-                  (+ pi arctan)]
-                 [(and (> y-center row) (> col x-center)) ;;; Fourth Quadrant
-                  (+ (* 2 pi) arctan)]
-                 [(and (> y-center row) (> x-center col)) ;;; Third Quadrant
-                  (+ pi arctan)]
-                 [else                                    ;;; First Quandrant
-                  arctan]
-                 ))]
-            ) 
-          x-center y-center)))
-
-(define cartesian-coords
-  (lambda (coords x-center y-center)
-    (list (round (+ x-center (* (car coords) (cos (cadr coords))))) 
-          ;;; x-coordinate needs to be restored to its proper position relative 
-          ;;; to the x-center of the circle.
-          (round (+ y-center (* (car coords) (sin (cadr coords)))))
-          ;;; Likewise for y-coordinate.
-          )))
-
-;(define reflective-circle
-;  (lambda (image x-center y-center aoe radius)
-;    (let* ([left (- x-center aoe)]
-;           [top (- y-center aoe)]
-;           [width-height (* 2 radius)]
-;           [new-image (image-new width-height width-height)])
-;      (circle new-image x-center y-center radius)
-;      (image-recompute!
-;       new-image
-;       (lambda (col row)
-;         ;         (let* ([polars (polar-coords x-center y-center col row)]
-;         ;                [scaled-radius (/ (* radius (car polars)) aoe)]
-;         ;                [cartesian 
-;         ;                 (cartesian-coords (list scaled-radius (cadr polars))
-;         ;                                   x-center y-center)])
-;         ;           (if (<= (sin-distance1 x-center y-center col1 row) aoe)
-;         (image-get-pixel image col row)
-;         ;               (irgb 0 0 0)))
-;         )))))
-
-(define bound
-  (lambda (lower upper n)
-    (min (max lower n) upper)))
-    
-
-(define add-scaled-ellipse!
-  (lambda (image base-layer left top width height aoe stroke?)
-    (copy-and-add-layer! image base-layer)
-    (let ([temp-layer (get-top-layer image)])
-      (image-select-ellipse! image REPLACE 
-                             (bound 0 (image-width image) (- left aoe))
-                             (bound 0 (image-height image) (- top aoe))
-                             (+ (* 2 aoe) width)
-                             (+ (* 2 aoe) height))
-      (when stroke? 
-        (repeat 20 context-set-brush! "2. Hardness 100" 9)
-        (image-stroke-selection! image))
-      
-      (scale-selection-into-new-layer!
-       temp-layer left top (+ left width) (+ top height))
-      (gimp-image-remove-layer image temp-layer)
-      (merge-floating-layer image (get-top-layer image) 1))))
-
-
-(define scale-selection-into-new-layer!
-  (lambda (temp-layer top-left-x top-left-y bot-right-x bot-right-y)
-    (gimp-floating-sel-to-layer
-       (car (gimp-item-transform-scale 
-             temp-layer 
-             top-left-x 
-             top-left-y                    
-             bot-right-x 
-             bot-right-y)))))
-
-(define merge-floating-layer
-  (lambda (image layer-merge merge-type)
-    (gimp-image-merge-down image layer-merge merge-type)))
-
-(define blur-image
-  (lambda (image layer repititions)
-    (repeat repititions plug-in-blur 1 image layer)))
-
-(define magnifying-glass!
-  (lambda (image left top diameter factor)
-    (add-scaled-ellipse! 
-     image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
-    (context-update-displays!)))
-    
-
-(define rain-me!
-  (lambda (image min-width min-height delta-width delta-height blur-degree aoe k)
-    (copy-and-add-layer! image (get-top-layer image))
-    (let* ([layers (cadr (gimp-image-get-layers image))]
-           [base (cadr layers)]
-           [blurred (car layers)])
-      (blur-image image blurred blur-degree)
-      (let kernel ([counter 0])
-        (if (= counter k)
-            (context-update-displays!)
-            (let ()
-              (add-scaled-ellipse!
-               image base 
-               (random (image-width image))
-               (random (image-height image))
-               (+ min-width (random delta-width))
-               (+ min-height (random delta-height))
-               aoe
-               #f)
-              (kernel (+ counter 1))))))))
-
-;(define texturize
-;  (lambda (image)
-
-
-(define copy-and-add-layer!
-  (lambda (image layer)
-    (gimp-image-add-layer 
-     image
-     (car (gimp-layer-copy layer 1))
-     0)))
-
-(define get-top-layer
-  (lambda (image)
-    (caadr (gimp-image-get-layers image))))
-
-;(define rain-onto-layer
-;  (lambda (n image layer min-width min-height delta-width delta-height aoe)
-;   (let kernel ([countdown n])
-;      (if (= 0 n)
-;          (let ()
-;            (image-select-nothing!)
-;            (context-update-displays!))
-;          (let ()
-;            (reflective-ellipse-from-layer
-;             image
-;             layer
-;             (random (image-width image))
-;             (random (image-height image))
-;             (+ min-width (random delta-width))
-;             (+ min-height (random delta-height))
-;             aoe)
-;            (kernel (- countdown 1))
-;            )))))
-
-;(define moving-items
-;  (lambda (image-to selection)
-;    (gimp-edit-cut selection)
-;    (gimp-edit-paste )))
-
-
-(define pugbro (image-load "/home/fisherhe/Desktop/sadpug.jpg"))
-(image-show pugbro)
-(magnifying-glass! pugbro 530 400 200 40)
-;(rain-me! pugbro 5 5 15 15 50 20 100)
- 
-;(reflective-ellipse-from-layer kitty 200 200 20 30 100)
-
-;;; Constant:
-;;;   MAX_ITERATIONS
-;;; Type:
-;;;   Integer
-;;; Description:
-;;;   The maximum number of iterations of the function we do before
-;;;   giving up.
-(define MAX_ITERATIONS 50)
-
 ;;; Procedure:
 ;;;   unit-coord-x
 ;;; Parameters:
@@ -443,6 +252,61 @@
 (define unit-coord-y
   (lambda (y height)
     (/ y height)))
+
+;;; Procedure:
+;;;   complex-distance-squared
+;;; Parameters:
+;;;   complex1, a complex number
+;;;   complex2, a complex number
+;;; Purpose:
+;;;   Computes the square of the distance from the point represented
+;;;   by complex1 to the point represented by complex2
+;;; Produces:
+;;;   distance-squared, a real number
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   distance-squared is the distance using the standard formula.
+;;; Ponderings:
+;;;   We compute the squared distance, rather than the distance, because
+;;;   computing distance normally requires computing a square root, and
+;;;   that's likely to be expensive.
+(define complex-distance-squared
+  (lambda (complex1 complex2)
+    (+ (square (- (real-part complex1) (real-part complex2)))
+       (square (- (imag-part complex1) (imag-part complex2))))))
+
+;;; Procedure:
+;;;   steps-to-escape
+;;; Parameters:
+;;;   complex, a complex number.
+;;;   fractal, a procedure.
+;;; Purpose:
+;;;   Counts the number of times we can repeatedly compute fractal
+;;;   before hitting max-recursions or getting a number 
+;;;   that is more than 2 away from the complex origin.  If we hit
+;;;   max-recursions, we return a special value (-1).
+;;; Produces:
+;;;   steps, an integer
+;;; Preconditions:
+;;;   Let f(z) be fractal.  (We use this in the postconditions.)
+;;; Postconditions:
+;;;   If steps >= 0, then complex "escapes" after exactly steps iterations.  That is,
+;;;     distance((f^s)(complex), 0) >= 2 and for all i, 0 <= i < s, 
+;;;     distance((f^i)(complex), 0) < 2.
+;;;   If steps = -1, then complex does not "escape" within max-recursions. That is,
+;;;     for all i, 0 <= i <= max-recursions, distance((f^i)(complex), 0) < 2.
+(define steps-to-escape
+  (lambda (complex-number fractal)
+    (let kernel ([z complex-number]
+                 [steps 0])
+      (cond
+        [(>= (complex-distance-squared z 0) 4)
+         steps]
+        [(>= steps max-recursions)
+         -1]
+        [else
+         (kernel fractal (+ steps 1))]))))
 
 ;;; Procedure:
 ;;;   hsv2irgb
@@ -498,75 +362,21 @@
 ;;; Preconditions:
 ;;;   [No additional]
 ;;; Postconditions:
-;;;   If j != i and (abs (- j i)) < MAX_ITERATIONS, then
+;;;   If j != i and (abs (- j i)) < max-recursions, then
 ;;;     (indexed-color i) and (index-color j) are likely to
 ;;;     be different.
 (define index-color
   (lambda (i)
-    (hsv2irgb (* i (/ 360.0 MAX_ITERATIONS))
+    (hsv2irgb (* i (/ 360.0 ))
               (+ .5 (* .1 (mod i 6)))
               (+ .5 (* .05 (mod i 11))))))
-
-;;; Procedure:
-;;;   complex-distance-squared
-;;; Parameters:
-;;;   c1, a complex number
-;;;   c2, a complex number
-;;; Purpose:
-;;;   Computes the square of the distance from the point represented
-;;;   by c1 to the point represented by c2
-;;; Produces:
-;;;   distance-squared, a real number
-;;; Preconditions:
-;;;   [No additional]
-;;; Postconditions:
-;;;   distance-squared is the distance using the standard formula.
-;;; Ponderings:
-;;;   We compute the squared distance, rather than the distance, because
-;;;   computing distance normally requires computing a square root, and
-;;;   that's likely to be expensive.
-(define complex-distance-squared
-  (lambda (c1 c2)
-    (+ (square (- (real-part c1) (real-part c2)))
-       (square (- (imag-part c1) (imag-part c2))))))
-
-;;; Procedure:
-;;;   steps-to-escape
-;;; Parameters:
-;;;   c, a complex number.
-;;; Purpose:
-;;;   Counts the number of times we can repeatedly compute z[i+1] =
-;;;   z[i]*z[i]+c before hitting MAX_ITERATIONS or getting a number 
-;;;   that is more than 2 away from the complex origin.  If we hit
-;;;   MAX_ITERATIONS, we return a special value (-1).
-;;; Produces:
-;;;   s, an integer
-;;; Preconditions:
-;;;   Let f(z) be z*z+c.  (We use this in the postconditions.)
-;;; Postconditions:
-;;;   If s >= 0, then c "escapes" after exactly s iterations.  That is,
-;;;     distance((f^s)(c), 0) >= 2 and for all i, 0 <= i < s, 
-;;;     distance((f^i)(c), 0) < 2.
-;;;   If s = -1, then c does not "escape" within MAX_ITERATIONS. That is,
-;;;     for all i, 0 <= i <= MAX_ITERATIONS, distance((f^i)(c), 0) < 2.
-(define steps-to-escape
-  (lambda (c)
-    (let kernel ([z c]
-                 [s 0])
-      (cond
-        [(>= (complex-distance-squared z 0) 4)
-         s]
-        [(>= s MAX_ITERATIONS)
-         -1]
-        [else
-         (kernel (+ (real-part (* z z z)) (* 0+i (imag-part (/ z z z))) c) (+ s 1))]))))
 
 ; An version of image-series that generates various portions of the
 ; mandelbrot set.  Not documented with the six P's because that's
 ; part of the project, and this is sample code for the project.
 (define mandelbrot-image-series
   (lambda (n width height)
-    (let* (; Our default color.  Used when we hit MAX_ITERATIONS.
+    (let* (; Our default color.  Used when we hit max-recursions.
            [DEFAULT (irgb 0 0 0)]
            ; The horizontal offset of the center from top-left.
            ; Use -2.0 for normal.  Might be based on n.
@@ -595,4 +405,160 @@
              color))
          width height)))))
 
+(define raindrop-inputs
+  (lambda (image)
+    (let ([num (num-of-inputs image)])
+      (let kernel ([power 0])
+        (if (= power num)
+            null
+            (cons (chaotic-chain chaotic-matrix-4x4-1 initial-aoe-vector power) 
+                  (kernel (+ power 1))))))))
+
+(define magnify-inputs
+  (lambda (image)
+    (let ([num (num-of-inputs image)])
+      (let kernel ([power 0])
+        (if (= power num)
+            null
+            (cons (chaotic-chain chaotic-matrix-3x3 initial-magnify-vector power) 
+                  (kernel (+ power 1))))))))
+
+(define distortion-inputs
+  (lambda (image)
+    (let ([num (num-of-inputs image)])
+      (let kernel ([power 0])
+        (if (= power num)
+            null
+            (cons (chaotic-chain chaotic-matrix-4x4-2 initial-magnify-vector power) 
+                  (kernel (+ power 1))))))))
+
+(define num-of-inputs
+  (lambda (image)
+    (round (- (* 87.7275 (log (image-area image))) 669))))
+
+(define initial-aoe-vector
+  (list 0 0 3 7))
+
+(define initial-magnify-vector
+  (list 0 0 20))
+
+(define chaotic-matrix-3x3
+  (list (list -1 1 0)
+        (list 2 5 -4)
+        (list -3 1/2 5)))
+
+(define chaotic-matrix-4x4-1
+  (list (list 1 2 3 4) 
+        (list 1 2 5 6) 
+        (list 0 2 1 0) 
+        (list 4 10 -2 -7)))
+
+(define chaotic-matrix-4x4-2
+  (list (list 5 -2 2.5 11) 
+        (list 1 2 -5 -0.5) 
+        (list 0 1 4 0.002) 
+        (list 1 3 -3 -7)))
+
+(define image-area
+  (lambda (image)
+    (* (image-width image) (image-height image))))
+
+(define determine-aoe
+  (lambda (n)
+    (let ([mod-aoe (modulo (* n 7) 100)])
+      (if (> 10 mod-aoe)
+          (+ mod-aoe)
+          mod-aoe))))
+
+(define determine-blur
+  (lambda (n)
+    (let ([mod-blur (modulo (* n 13) 100)])
+      (if (> 5 mod-blur)
+          (+ 5 mod-blur)
+          mod-blur))))
+
+(define circle
+  (lambda (image x-center y-center radius)
+    (let ([diameter (* 2 radius)])
+      (image-select-ellipse! image REPLACE 
+                             (- x-center radius) 
+                             (- y-center radius) 
+                             diameter diameter))))
+
+(define bound
+  (lambda (lower upper n)
+    (min (max lower n) upper)))
+
+
+(define add-scaled-ellipse!
+  (lambda (image base-layer left-x left-y width height aoe)
+    (copy-and-add-layer! image base-layer)
+    (let ([temp-layer (get-top-layer image)])
+      (image-select-ellipse! image REPLACE 
+                             (bound 0 (image-width image) (- left-x aoe))
+                             (bound 0 (image-height image) (- left-y aoe))
+                             (+ (* 2 aoe) width)
+                             (+ (* 2 aoe) height))
+      
+      (scale-selection-into-new-layer!
+       temp-layer left-x left-y (+ left-x width) (+ left-y height))
+      (gimp-image-remove-layer image temp-layer)
+      (merge-floating-layer image (get-top-layer image) 1))))
+
+
+(define scale-selection-into-new-layer!
+  (lambda (temp-layer new-left-x new-left-y new-right-x new-right-y)
+    (gimp-floating-sel-to-layer
+     (car (gimp-item-transform-scale 
+           temp-layer 
+           new-left-x 
+           new-left-y                    
+           new-right-x 
+           new-right-y)))))
+
+(define merge-floating-layer
+  (lambda (image layer-merge merge-type)
+    (gimp-image-merge-down image layer-merge merge-type)))
+
+(define blur-image
+  (lambda (image layer repititions)
+    (repeat repititions plug-in-blur 1 image layer)))
+
+(define rain-me!
+  (lambda (image k min-width min-height delta-width delta-height aoe blur-degree)
+    (copy-and-add-layer! image (caadr (gimp-image-get-layers image)))
+    (let* ([layers (cadr (gimp-image-get-layers image))]
+           [base (cadr layers)]
+           [blurred (car layers)])
+      (blur-image image blurred blur-degree)
+      (let kernel ([counter 0])
+        (if (= counter k)
+            (context-update-displays!)
+            (let ()
+              (add-scaled-ellipse!
+               image base 
+               (random (image-width image))
+               (random (image-height image))
+               (+ min-width (random delta-width))
+               (+ min-height (random delta-height))
+               aoe)
+              (context-update-displays!)
+              (kernel (+ counter 1))))))))
+
+(define copy-and-add-layer!
+  (lambda (image layer)
+    (gimp-image-add-layer 
+     image
+     (car (gimp-layer-copy layer 1))
+     0)))
+
+(define get-top-layer
+  (lambda (image)
+    (caadr (gimp-image-get-layers image))))
+
+(define darp
+  car)
+
+(define derp
+  cdr)
 
