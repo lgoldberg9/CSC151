@@ -290,12 +290,17 @@
 (define add-scaled-ellipse!
   (lambda (image base-layer left top width height aoe stroke?)
     (copy-and-add-layer! image base-layer)
-    (let ([temp-layer (get-top-layer image)])
+    (let ([temp-layer (get-top-layer image)]
+          [bound-aoe (min (min (- (image-width image)
+                                  (+ left width))
+                               (- (image-height image)
+                                  (+ top height)))
+                          aoe)])
       (image-select-ellipse! image REPLACE 
-                             (bound 0 (image-width image) (- left aoe))
-                             (bound 0 (image-height image) (- top aoe))
-                             (+ (* 2 aoe) width)
-                             (+ (* 2 aoe) height))
+                             (bound 0 (image-width image) (- left bound-aoe))
+                             (bound 0 (image-height image) (- top bound-aoe))
+                             (+ (* 2 bound-aoe) width)
+                             (+ (* 2 bound-aoe) height))
       (when stroke? 
         (repeat 20 context-set-brush! "2. Hardness 100" 9)
         (image-stroke-selection! image))
@@ -324,34 +329,62 @@
   (lambda (image layer repititions)
     (repeat repititions plug-in-blur 1 image layer)))
 
+(define distort!
+  (lambda (image distort-lst aoe blur-degree)
+    (render-blobs! image distort-lst
+                   (round (find-biggest-distortion image))
+                   (round (find-biggest-distortion image))
+                   aoe blur-degree)
+    (blur-image image (get-top-layer image) blur-degree)))
+     
+    
+
 (define magnifying-glass!
   (lambda (image left top diameter factor)
     (add-scaled-ellipse! 
      image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
     (context-update-displays!)))
     
-
-(define rain-me!
-  (lambda (image min-width min-height delta-width delta-height blur-degree aoe k)
+(define render-blobs!
+  (lambda (image lst min-dimension max-dimension aoe blur-degree)
     (copy-and-add-layer! image (get-top-layer image))
     (let* ([layers (cadr (gimp-image-get-layers image))]
            [base (cadr layers)]
            [blurred (car layers)])
       (blur-image image blurred blur-degree)
-      (let kernel ([counter 0])
-        (if (= counter k)
+      (let kernel ([remaining lst])
+        (if (null? remaining)
             (context-update-displays!)
-            (let ()
+            (let ([blob (car remaining)])
               (add-scaled-ellipse!
-               image base 
-               (random (image-width image))
-               (random (image-height image))
-               (+ min-width (random delta-width))
-               (+ min-height (random delta-height))
+               image base
+               (modulo (list-ref blob 0) (image-width image))
+               (modulo (list-ref blob 1) (image-height image))
+               (+ min-dimension (modulo (list-ref blob 2) max-dimension))
+               (+ min-dimension (modulo (list-ref blob 2) max-dimension))
                aoe
                #f)
-              (kernel (+ counter 1))))))))
+              (kernel (cdr remaining))))))))
+    
+; raindrop-list: (list (list x-center y-center added-width added-height))
+(define rain-me!
+  (lambda (image raindrop-lst aoe blur-degree)
+    (render-blobs! image raindrop-lst
+                   (round (find-biggest-raindrop image))
+                   (round (find-biggest-raindrop image))
+                   aoe blur-degree)))
 
+(define find-biggest-raindrop
+  (lambda (image)
+    (- (* 4.5 (log (image-area image))) 18.5)))
+
+(define find-biggest-distortion
+  (lambda (image)
+    (+ (* 0.0000895644 (image-area image)) 11.3735)))
+    
+    
+    
+              
 ;(define texturize
 ;  (lambda (image)
 
