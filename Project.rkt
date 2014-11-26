@@ -30,8 +30,6 @@
            (image-show (image-load "/home/goldberg/Pictures/daviscollage.png"))]
           [(= n 0)
            (image-show (image-load "/home/goldberg/Pictures/walkercollage.png"))]
-          ;[
-          ; ]
           [else
            (master-series n width height)]
           )))
@@ -40,8 +38,10 @@
   (lambda (n width height)
     (let ([fractal (fractal-image-series n width height)])
       (cond 
-        ;[(= 0 (modulo n 3)) 
-        ; (magnifying-glass! fractal (magnify-inputs fractal)]
+        [(> 10000 (image-area fractal))
+         fractal]
+        [(= 0 (modulo n 3))
+         (magnifying-glass! fractal (magnify-inputs fractal) 5)]
         [(= 1 (modulo n 3))
          (distort! fractal (distortion-inputs fractal) (determine-aoe n) (determine-blur n))]
         [else 
@@ -85,12 +85,6 @@
                              (index-color (+ n steps)))])
              color))
          width height)))))
-
-(define darp
-  car)
-
-(define derp
-  cdr)
 
 ; +----------------------+-------------------------------------------
 ; | Algorithm Procedures |
@@ -140,27 +134,6 @@
           (error "Inner-dimensions do not match. Multiplication undefined.")
           ))))
 
-(define transpose
-  (lambda (matrix)
-    (if (or (null? matrix) (null? (car matrix)))
-        null
-        (cons (map car matrix)
-              (transpose (map cdr matrix))))))
-
-(define normalize
-  (lambda (col)
-    (let ([magnitude (sqrt (apply + (map square col)))])
-      (map (r-s / magnitude) col))))
-
-(define normalization
-  (lambda (matrix)
-    ((o transpose (l-s map normalize) transpose) matrix)))
-
-(define eigenvector-composition
-  (lambda (matrix1 matrix2)
-    (matrix-multiplication 
-     (matrix-multiplication matrix1 matrix2) (transpose matrix1))))
-
 (define raindrop-inputs
   (lambda (image)
     (let ([num (num-of-inputs image)])
@@ -190,7 +163,7 @@
 
 (define num-of-inputs
   (lambda (image)
-    (min 350 (round (+ (* 0.000161411 (image-area image)) 40.2778)))))
+    (round (* 10 (log (image-area image))))))
 
 ;;; Procedure:
 ;;;   steps-to-escape
@@ -235,12 +208,12 @@
     (copy-and-add-layer! image base-layer)
     (let ([temp-layer (get-top-layer image)])
       (image-select-ellipse! image REPLACE 
-                             (bound 0 (image-width image) (- left aoe))
-                             (bound 0 (image-height image) (- top aoe))
+                             (bound 0 (- (image-width image) 1) (- left aoe))
+                             (bound 0 (- (image-height image) 1) (- top aoe))
                              (+ (* 2 aoe) width)
                              (+ (* 2 aoe) height))
       (when stroke? 
-        (repeat 20 context-set-brush! "2. Hardness 100" 9)
+        (repeat 5 context-set-brush! "2. Hardness 100" 3)
         (image-stroke-selection! image))
       (scale-selection-into-new-layer!
        temp-layer left top (+ left width) (+ top height))
@@ -278,14 +251,16 @@
     (let kernel ([remaining magnify-lst])
       (if (null? remaining)
           (context-update-displays!)
-          (let ([glass (car remaining)])
+          (let ([glass (car remaining)]
+                [max-diameter (round (find-biggest-magnifier image))])
             (add-scaled-ellipse! 
              image (get-top-layer image)
-             (list-ref glass 0)
-             (list-ref glass 1)
-             (round (/ 2 (+ (list-ref glass 2) (list-ref glass 3))))
-             (round (/ 2 (+ (list-ref glass 2) (list-ref glass 3))))
-             (* -1 factor) #t))))))
+             (modulo (round (car (list-ref glass 0))) (image-width image))
+             (modulo (round (car (list-ref glass 1))) (image-height image))
+             (+ 11 (modulo (round (car (list-ref glass 2))) max-diameter))
+             (+ 11 (modulo (round (car (list-ref glass 2))) max-diameter))
+             (* -1 factor) #t)
+            (kernel (cdr remaining)))))))
 
 (define render-blobs!
   (lambda (image lst min-dimension max-dimension aoe blur-degree stroke?)
@@ -337,6 +312,7 @@
 (define find-biggest-magnifier
   (lambda (image)
     (* 6 (log (image-area image)))))
+
 
 ; +---------------+--------------------------------------------------
 ; | Minor Helpers |
@@ -412,13 +388,13 @@
          (lambda (c z)
            (- (expt z 3) 1))
          (lambda (n)
-           (+ 0 (* 0.25 (mod n 3))))
+           (+ -2 (* 0.25 (mod n 3))))
          (lambda (n)
-           (+ 0 (* 0.25 (mod n 3))))
+           (+ -2 (* 0.25 (mod n 3))))
          (lambda (HOFFSET)
-           (- 1.0 HOFFSET))
+           (- 2.0 HOFFSET))
          (lambda (VOFFSET)
-           (- 1.0 VOFFSET)))))
+           (- 2.0 VOFFSET)))))
 
 (define lookup-attributes
   (lambda (string table)
@@ -447,9 +423,9 @@
 
 (define determine-aoe
   (lambda (n)
-    (let ([mod-aoe (modulo (* n 7) 100)])
+    (let ([mod-aoe (modulo (* n 7) 30)])
       (if (> 10 mod-aoe)
-          (+ mod-aoe)
+          (+ 10 mod-aoe)
           mod-aoe))))
 
 (define determine-blur
@@ -582,46 +558,9 @@
 (define index-color
   (lambda (i)
     (hsv2irgb ;;; Change first parameter to hsv2irgb to change the color scheme of the fractals.
-     (* 180 (+ 1 (* 2 (sin i))))
+     (* 180 (+ 1 (* 1.5 (sin i))))
      (+ .5 (* .1 (mod i 6)))
      (+ .5 (* .05 (mod i 11))))))
-
-(define taxicab-distance
-  (lambda (col1 row1 col2 row2)
-    (+ (* 1 (abs (- col2 col1))) (abs (- row2 row1)))))
-
-(define taxicab-distance1
-  (lambda (col1 row1 col2 row2)
-    (+ (* 1 (abs (- col2 (/ (+ row1 row2) 2)))) 
-       (abs (- row2 (/ (+ col1 col2) 2))))))
-
-(define taxicab-distance2
-  (lambda (col1 row1 col2 row2)
-    (+ (* 1 (abs (- col2 (/ (+ row1 row2) 2)))) 
-       (abs (- row2 (/ (- col1 col2) 2))))))
-
-(define sin-distance1
-  (lambda (col1 row1 col2 row2)
-    (+ 100 (* 1 (tan (- col2 (/ (+ row1 row2) 2)))) 
-       (* 1 (tan (- row2 (/ (+ col1 col2) 2)))))))
-
-(define euclidean-distance
-  (lambda (col1 row1 col2 row2)
-    (sqrt (+ (square (- col2 col1)) (square (- row2 row1))))))
-
-(define deterministic-distance
-  (lambda (col1 row1 col2 row2)
-    (abs (- (* col1 row2) (* col2 row1)))))
-
-;(image-show (image-compute
-;             (lambda (col row)
-;               (if (and (<= (sin-distance1 200 200 col row) 100)
-;             ;           (<= (taxicab-distance2 400 400 col row) 100)
-;                        )
-;                   (irgb (* 1/2 col) 0 (* 1/2 row))
-;                   (irgb 0 0 0)))
-;             400 400))
-
 
 ; +-----------+------------------------------------------------------
 ; | Constants |
@@ -643,9 +582,9 @@
   (list (list 0) (list 0) (list 20)))
 
 (define chaotic-matrix-3x3
-  (list (list 1 1 0)
-        (list 2 5 4)
-        (list 3 1/2 5)))
+  (list (list 1.1 1.7 21)
+        (list 5 6.3 7.81)
+        (list 2 4.5 9.1)))
 
 (define chaotic-matrix-4x4-1
   (list (list 1 0.5 0.2 0.1) 
