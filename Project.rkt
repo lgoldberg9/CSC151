@@ -7,12 +7,25 @@
 ;;;   Logan Goldberg, Henry Fisher
 ;;; Summary:
 ;;;   
-;;; Notes: 
-;;; Citations:
 
 ; +-------+----------------------------------------------------------
 ; | Notes |
 ; +-------+
+;;; Hereinafter, we shall refer to what is known as a column-vector.
+;;; A column-vector is a list of lists where each sub-list has one element.
+;;; For example, (list (list 1) (list 4) (list 2)) is a three-dimensional
+;;; column-vector. Each number in our column-vector will be a real number 
+;;; by default.
+;
+;
+;;; Props:
+;;; I would like to thank Professor Mileti for suggesting how to 
+;;; go about making our matrices chaotic, Professor Holcomb for
+;;; suggesting the types of magnification we used, Professor Weiman
+;;; for suggesting how to alter our color schcme in our fractals,
+;;; Professor Stone for helping us work out some of the quirks in
+;;; our procedures, and Professor Rebelsky for all the nifty procedures
+;;; we used in our project.
 
 ; +--------------------+---------------------------------------------
 ; | Primary Procedures |
@@ -21,15 +34,15 @@
 (define image-series
   (lambda (n width height)
     (cond [(= n 666)
-           (image-show (image-load "/home/goldberg/Pictures/samcollage.png"))]
+           (image-show (image-load "/home/goldberg/public_html/images/samcollage.png"))]
           [(= n 420)
-           (image-show (image-load "/home/goldberg/Pictures/stonecollage.png"))]
+           (image-show (image-load "/home/goldberg/public_html/images/stonecollage.png"))]
           [(= n 42)
-           (image-show (image-load "/home/goldberg/Pictures/weinmancollage.png"))]
+           (image-show (image-load "/home/goldberg/public_html/images/weinmancollage.png"))]
           [(= n 888)
-           (image-show (image-load "/home/goldberg/Pictures/daviscollage.png"))]
+           (image-show (image-load "/home/goldberg/public_html/images/daviscollage.png"))]
           [(= n 0)
-           (image-show (image-load "/home/goldberg/Pictures/walkercollage.png"))]
+           (image-show (image-load "/home/goldberg/public_html/images/walkercollage.png"))]
           [else
            (master-series n width height)]
           )))
@@ -38,7 +51,7 @@
   (lambda (n width height)
     (let ([fractal (fractal-image-series n width height)])
       (cond 
-        [(> 10000 (image-area fractal))
+        [(>= 10000 (image-area fractal))
          fractal]
         [(= 0 (modulo n 3))
          (magnifying-glass! fractal (magnify-inputs fractal) 5)]
@@ -53,26 +66,16 @@
 ; part of the project, and this is sample code for the project.
 (define fractal-image-series
   (lambda (n width height)
-    (let* (; Our default color.  Used when we hit max-recursions.
-           [FRACTAL-CHOICE (car 
+    (let* ([FRACTAL-CHOICE (car 
                             (list-ref fractal-table 
                                       (modulo (round (/ n 4)) (length fractal-table))))]
            [ASSOC-FRACTAL (lookup-attributes FRACTAL-CHOICE fractal-table)]
            [DEFAULT (irgb 0 0 0)]
-           ; The horizontal offset of the center from top-left.
-           ; Use -2.0 for normal.  Might be based on n.
            [HOFFSET ((list-ref ASSOC-FRACTAL 2) n)]
-           ; The vertical offset of the center from top-left.
-           ; Use -1.0 for normal.  Might be based on n.
            [VOFFSET ((list-ref ASSOC-FRACTAL 3) n)]
-           ; The horizontal scale.  Might be based on n
            [HSCALE ((list-ref ASSOC-FRACTAL 4) HOFFSET)]
-           ; The Vertical scale.  Might be based on n.
            [VSCALE ((list-ref ASSOC-FRACTAL 5) VOFFSET)])
-      (let (; Convert a point in the unit plane to a complex number within
-            ; some more interesting range.  That range is determined by the
-            ; parameters above.
-            [complicate (lambda (x y)
+      (let ([complicate (lambda (x y)
                           (+ (+ HOFFSET (* HSCALE x))
                              (* 0+i (+ VOFFSET (* VSCALE y)))))])
         (image-compute
@@ -90,9 +93,35 @@
 ; | Algorithm Procedures |
 ; +----------------------+
 
+;;; Procedure:
+;;;   dim-row
+;;; Parameters:
+;;;   matrix, a square matrix of real numbers
+;;; Purpose:
+;;;   To determine the number of rows in the matrix.
+;;; Produces:
+;;;   dimension, a positive integer.
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   [No additional]
+
 (define dim-row
   (lambda (matrix)
     (length matrix)))
+
+;;; Procedure:
+;;;   dim-col
+;;; Parameters:
+;;;   matrix, a square matrix of real numbers
+;;; Purpose:
+;;;   To determine the number of columns in the matrix.
+;;; Produces:
+;;;   dimension, a positive integer.
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   [No additional]
 
 (define dim-col
   (lambda (matrix)
@@ -101,6 +130,22 @@
           (length matrix)
           (length mcar)))))
 
+;;; Procedure:
+;;;   chaotic-chain
+;;; Parameters:
+;;;   matrix, a square matrix of real numbers
+;;;   vec, a column-vector of real numbers
+;;;   power, a nonnegative integer
+;;; Purpose:
+;;;   Raises a 'matrix' to some 'power' and then multiplies the resulting matrix by 'vec'.
+;;; Produces:
+;;;   chaotic-vec, a column-vector
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   (dim-row vec)=(dim-row chaotic-vec)
+;;;   (* (expt matrix power) vec)=chaotic-vec
+
 (define chaotic-chain
   (lambda (matrix vec power)
     (let kernel ([chaotic-vec vec][counter 0])
@@ -108,22 +153,39 @@
           chaotic-vec
           (kernel (matrix-multiplication matrix chaotic-vec) (+ 1 counter))))))
 
-(define matrix-multiplication ;;; Cite Stone.
+;;; Procedure:
+;;;   matrix-multiplication
+;;; Parameters:
+;;;   left, a square matrix of real numbers
+;;;   right, a square matrix of real numbers
+;;; Purpose:
+;;;   Finds the product of two matrices.
+;;; Produces:
+;;;   product, a square matrix of real numbers
+;;; Preconditions:
+;;;   (dim-col left)=(dim-row right)
+;;; Postconditions:
+;;;   (dim-row left)=(dim-row product)
+;;;   (dim-col right)=(dim-col product)
+;;; Props:
+;;;    Mr. Stone helped us figure out the nested recursions necessary to make this procedure work.
+
+(define matrix-multiplication
   (lambda (left right)
     (let ([left-dim-row (dim-row left)]
           [right-dim-row (dim-row right)]
           [left-dim-col (dim-col left)]
           [right-dim-col (dim-col right)])
       (if (= left-dim-col right-dim-row)
-          (let left-row ([left-row-cycle 0])
+          (let left-row ([left-row-cycle 0]) ;;;This sets the row of 'left' to recurse over.
             (if (= left-dim-row left-row-cycle)
                 null
                 (cons 
-                 (let right-col ([right-col-cycle 0])
+                 (let right-col ([right-col-cycle 0]) ;;;This sets the column of 'right' to recurse over.
                    (if (= right-dim-col right-col-cycle)
                        null
                        (cons 
-                        (let vec-functional ([position 0])
+                        (let vec-functional ([position 0]) ;;;This carries out the multiplication between 'left-row' and 'right-col'.
                           (if (= position right-dim-row)
                               0
                               (+ (* (list-ref (list-ref left left-row-cycle) position)
@@ -134,6 +196,21 @@
           (error "Inner-dimensions do not match. Multiplication undefined.")
           ))))
 
+;;; Procedure:
+;;;   raindrop-inputs
+;;; Parameters:
+;;;   image, an image
+;;; Purpose:
+;;;   Creates a list of 'column-vectors' to be used to render raindrops onto image.
+;;; Produces:
+;;;   inputs, a list of 'column-vectors'.
+;;; Preconditions:
+;;;   (> (image-area image) 10000). If this is not true, then 'raindrop-inputs'
+;;;   does not execute.
+;;; Postconditions:
+;;;   (length inputs)=num
+;;;   Each element of 'inputs' should be a four-dimensional column-vector.
+
 (define raindrop-inputs
   (lambda (image)
     (let ([num (num-of-inputs image)])
@@ -142,6 +219,21 @@
             null
             (cons (chaotic-chain chaotic-matrix-4x4-1 initial-aoe-vector power) 
                   (kernel (+ power 1))))))))
+
+;;; Procedure:
+;;;   raindrop-inputs
+;;; Parameters:
+;;;   image, an image
+;;; Purpose:
+;;;   Creates a list of 'column-vectors' to be used to render the magnifiers onto image.
+;;; Produces:
+;;;   inputs, a list of 'column-vectors'.
+;;; Preconditions:
+;;;   (> (image-area image) 10000). If this is not true, then 'magnify-inputs'
+;;;   does not execute.
+;;; Postconditions:
+;;;   (length inputs)=num
+;;;   Each element of 'inputs' should be a three-dimensional column-vector.
 
 (define magnify-inputs
   (lambda (image)
@@ -152,6 +244,21 @@
             (cons (chaotic-chain chaotic-matrix-3x3 initial-magnify-vector power) 
                   (kernel (+ power 1))))))))
 
+;;; Procedure:
+;;;   distortion-inputs
+;;; Parameters:
+;;;   image, an image
+;;; Purpose:
+;;;   Creates a list of 'column-vectors' to be used to render distortions onto image.
+;;; Produces:
+;;;   inputs, a list of 'column-vectors'.
+;;; Preconditions:
+;;;   (> (image-area image) 10000). If this is not true, then 'distortion-inputs'
+;;;   does not execute.
+;;; Postconditions:
+;;;   (length inputs)=num
+;;;   Each element of 'inputs' should be a four-dimensional column-vector.
+
 (define distortion-inputs
   (lambda (image)
     (let ([num (num-of-inputs image)])
@@ -161,6 +268,21 @@
             (cons (chaotic-chain chaotic-matrix-4x4-2 initial-aoe-vector power) 
                   (kernel (+ power 1))))))))
 
+;;; Procedure:
+;;;   num-of-inputs
+;;; Parameters:
+;;;   image, an image
+;;; Purpose:
+;;;   To determine the number of inputs to be rendered onto the image 
+;;;   based off of a logarithmic function.
+;;; Produces:
+;;;   input-num, a nonnegative integer.
+;;; Preconditions:
+;;;   (> (image-area image) 10000). If this is not true, then 'num-of-inputs'
+;;;   does not execute.
+;;; Postconditions:
+;;;   [No additional]
+
 (define num-of-inputs
   (lambda (image)
     (round (* 10 (log (image-area image))))))
@@ -168,17 +290,19 @@
 ;;; Procedure:
 ;;;   steps-to-escape
 ;;; Parameters:
-;;;   complex, a complex number.
+;;;   complex-number, a complex number.
 ;;;   fractal, a procedure.
 ;;; Purpose:
 ;;;   Counts the number of times we can repeatedly compute fractal
 ;;;   before hitting max-recursions or getting a number 
-;;;   that is more than 2 away from the complex origin.  If we hit
+;;;   that is more than 2 away from the complex origin. If we hit
 ;;;   max-recursions, we return a special value (-1).
 ;;; Produces:
 ;;;   steps, an integer
 ;;; Preconditions:
 ;;;   Let f(z) be fractal.  (We use this in the postconditions.)
+;;;   Have fractal be passed into 'steps-to-escape' from 'fractal-image-series'
+;;;   so as to pass the assoc-list from fractal-table.
 ;;; Postconditions:
 ;;;   If steps >= 0, then complex "escapes" after exactly steps iterations.  That is,
 ;;;     distance((f^s)(complex), 0) >= 2 and for all i, 0 <= i < s, 
@@ -318,9 +442,26 @@
 ; | Minor Helpers |
 ; +---------------+
 
+;;; Procedure:
+;;;   fractal-table
+;;; Purpose:
+;;;   We will use fractal-table to store the information of our fractals.
+;;;   fractal-table is an association list that 'fractal-image-series'
+;;;   and 'steps-to-escape' takes as inputs in order to build the fractal image.
+;;; Contents:
+;;;   The structure of the association list is as follows:
+;;;   (list '(name proc HOFFSET VOFFSET HSCALE VSCALE)
+;;;       'name' is the name of the fractal.
+;;;       'proc' is the procedure that the values of 'z' and 'c' pass through to
+;;;          calculate the 'steps-to-escape'.
+;;;       'HOFFSET' is the horizontal offset from the origin. It is a procedure.
+;;;       'VOFFSET' is the vertical offset from the origin. It is a procedure.
+;;;       'HSCALE' is the horizontal span of our image. 
+;;;          It is a procedure and is dependent on the unit-coord-x.
+;;;       'VSCALE' is the vertical span of our image. 
+;;;          It is a procedure and is dependent on the unit-coord-y.
 (define fractal-table
   (list
-   ;;;  '(name proc HOFFSET VOFFSET HSCALE VSCALE)
    (list "blade" 
          (lambda (c z) (+ c (- (real-part (expt z 3)) 
                                (* 0+i (imag-part (/ z z z))))))
@@ -356,11 +497,9 @@
            (- 1.0 HOFFSET))
          (lambda (VOFFSET)
            (- 1.0 VOFFSET)))
-   (list "pythagoras-tree")
    (list "julia" 
          (lambda (c z) 
            (- (* z z) 1)))
-   (list "attractor")
    (list "eagle")
    (list "void"
          (lambda (c z)
@@ -396,6 +535,21 @@
          (lambda (VOFFSET)
            (- 2.0 VOFFSET)))))
 
+;;; Procedure:
+;;;   lookup-attributes
+;;; Parameters:
+;;;   string, a string
+;;;   table, a list of fractal entries
+;;; Purpose:
+;;;   Looks up the fractal in the table.
+;;; Produces:
+;;;   assoc-result, the list with 'string'.
+;;; Preconditions:
+;;;   Each entry in table must be a list.
+;;;   Element 0 of each entry must be a string which represents a fractal name.
+;;; Postconditions:
+;;;   If an entry for the name appears somewhere in the table, 'assoc-result' is
+;;;     the corresponding list that contains 'string' (computed from the components).
 (define lookup-attributes
   (lambda (string table)
     (let ([assoc-result (assoc string table)])
@@ -403,6 +557,22 @@
           (error "fractal not valid.")
           assoc-result))))
 
+;;; Procedure:
+;;;   assoc
+;;; Parameters:
+;;;   key, a Scheme value
+;;;   alist, an association list
+;;; Purpose:
+;;;   Find an entry with key key in alist.
+;;; Produces:
+;;;   entry, a Scheme value
+;;; Preconditions:
+;;;   No additional
+;;; Postconditions:
+;;;   If there is an index, i, such that
+;;;     (equal? key (car (list-ref alist i)))
+;;;   then entry is the first such entry
+;;;   Otherwise, entry is false (#f)
 (define assoc
   (lambda (key alist)
     (cond
@@ -413,14 +583,55 @@
       [else 
        (assoc key (cdr alist))])))
 
+;;; Procedure:
+;;;   bound
+;;; Parameters:
+;;;   lower, a real number
+;;;   upper, a real number
+;;;   n, a real number
+;;; Purpose:
+;;;   To bound 'n' to a certain domain given the upper-bound 'upper'
+;;;   and the lower-bound 'lower'.
+;;; Produces:
+;;;   bounded-n, a nonnegative integer
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   (< lower bounded-n upper)
+;;;   if (= n upper), then (= bounded-n upper)
+;;;   if (= n lower), then (= bounded-n lower)
 (define bound
   (lambda (lower upper n)
     (min (max lower n) upper)))
 
+;;; Procedure:
+;;;   image-area
+;;; Parameters:
+;;;   image, an image
+;;; Purpose:
+;;;   To calculate the area of the image.
+;;; Produces:
+;;;   area, a positive integer.
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   [No additional]
 (define image-area
   (lambda (image)
     (* (image-width image) (image-height image))))
 
+;;; Procedure:
+;;;   determine-aoe
+;;; Parameters:
+;;;   n, a nonnegative integer
+;;; Purpose:
+;;;   To calculate a given area-of-effect (aoe) for render-blobs! to use.
+;;; Produces:
+;;;   aoe, a nonnegative integer
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   If (> 10 aoe), then (+ 10 aoe).
 (define determine-aoe
   (lambda (n)
     (let ([mod-aoe (modulo (* n 7) 30)])
@@ -428,6 +639,20 @@
           (+ 10 mod-aoe)
           mod-aoe))))
 
+;;; Procedure:
+;;;   determine-blur
+;;; Parameters:
+;;;   n, a nonnegative integer
+;;; Purpose:
+;;;   To calculate a given blur-effect for render-blobs! to use.
+;;;   blur serves as a parameter to a repeat function which will 
+;;;   repeat (plug-in-blur) 'blur' times.
+;;; Produces:
+;;;   blur, a nonnegative integer.
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   If (> 5 blur), then (+ 5 blur).
 (define determine-blur
   (lambda (n)
     (let ([mod-blur (modulo (* n 13) 100)])
@@ -575,23 +800,72 @@
 ;;;   giving up.
 (define max-recursions 50)
 
+;;; Constant:
+;;;   initial-aoe-vector
+;;; Type:
+;;;   four-dimensional column-vector
+;;; Description:
+;;;   Is a column-vector that stores the set of initial conditions for
+;;;   our inputs to render-blob!.
+;;;   The first element is 'left' of the blob.
+;;;   The second element is 'top' of the blob.
+;;;   The third element is 'width' of the blob.
+;;;   The fourth element is 'height' of the blob.
 (define initial-aoe-vector
   (list (list 0) (list 0) (list 3) (list 7)))
+
+;;; Constant:
+;;;   initial-magnify-vector
+;;; Type:
+;;;   three-dimensional column-vector
+;;; Description:
+;;;   Is a column-vector that stores the set of initial conditions for
+;;;   our inputs to render-blob!.
+;;;   The first element is 'left' of the blob.
+;;;   The second element is 'top' of the blob.
+;;;   The third element is 'diameter' of the blob.
 
 (define initial-magnify-vector
   (list (list 0) (list 0) (list 20)))
 
+;;; Constant:
+;;;   chaotic-matrix-3x3
+;;; Type:
+;;;   a square-matrix of real numbers
+;;; Description:
+;;;   Is a 3x3 square matrix whose inputs are real numbers.
+;;;   Its designed to produce a chaotic outputs when multiplied
+;;;   against a column vector repeatedly.
+;;;   This matrix is used specifically for 'magnifying-glass!'.
 (define chaotic-matrix-3x3
   (list (list 1.1 1.7 21)
         (list 5 6.3 7.81)
         (list 2 4.5 9.1)))
 
+;;; Constant:
+;;;   chaotic-matrix-4x4-1
+;;; Type:
+;;;   a square-matrix of real numbers
+;;; Description:
+;;;   Is a 4x4 square matrix whose inputs are real numbers.
+;;;   Its designed to produce a chaotic outputs when multiplied
+;;;   against a column vector repeatedly. This matrix multiplication
+;;;   grows slowly and is intended for the raindrops.
 (define chaotic-matrix-4x4-1
   (list (list 1 0.5 0.2 0.1) 
         (list 0.3 0.4 0.2 2) 
         (list 0 2 1 0) 
         (list 0 0.9 0 7)))
 
+;;; Constant:
+;;;   chaotic-matrix-4x4-2
+;;; Type:
+;;;   a square-matrix of real numbers
+;;; Description:
+;;;   Is a 4x4 square matrix whose inputs are real numbers.
+;;;   Its designed to produce a chaotic outputs when multiplied
+;;;   against a column vector repeatedly. This matrix multiplication
+;;;   grows quickly and is intended for the distortions.
 (define chaotic-matrix-4x4-2
   (list (list 5 2 2.5 11) 
         (list 1 2 5 0.5) 
