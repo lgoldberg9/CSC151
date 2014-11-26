@@ -40,13 +40,13 @@
   (lambda (n width height)
     (let ([fractal (fractal-image-series n width height)])
       (cond 
-        ;[
-        ; ]
-        ;[
-        ; ]
+        ;[(= 0 (modulo n 3)) 
+        ; (magnifying-glass! fractal (magnify-inputs fractal)]
+        [(= 1 (modulo n 3))
+         (distort! fractal (distortion-inputs fractal) (determine-aoe n) (determine-blur n))]
         [else 
-         (rain-me! fractal (raindrop-inputs fractal) (determine-aoe n) (determine-blur n))]
-        ))))
+         (rain-me! fractal (raindrop-inputs fractal) (determine-aoe n) (determine-blur n))])
+      fractal)))
 
 ; An version of image-series that generates various portions of the
 ; fractal set.  Not documented with the six P's because that's
@@ -185,7 +185,7 @@
       (let kernel ([power 0])
         (if (= power num)
             null
-            (cons (chaotic-chain chaotic-matrix-4x4-2 initial-magnify-vector power) 
+            (cons (chaotic-chain chaotic-matrix-4x4-2 initial-aoe-vector power) 
                   (kernel (+ power 1))))))))
 
 (define num-of-inputs
@@ -233,18 +233,12 @@
 (define add-scaled-ellipse!
   (lambda (image base-layer left top width height aoe stroke?)
     (copy-and-add-layer! image base-layer)
-    (let ([temp-layer (get-top-layer image)]
-          [bound-aoe (min (min (- (image-width image)
-                                  (+ left width))
-                               (- (image-height image)
-                                  (+ top height)))
-                          aoe)])
-      
+    (let ([temp-layer (get-top-layer image)])
       (image-select-ellipse! image REPLACE 
-                             (- left bound-aoe)
-                             (- top bound-aoe)
-                             (+ (* 2 bound-aoe) width)
-                             (+ (* 2 bound-aoe) height))
+                             (bound 0 (image-width image) (- left aoe))
+                             (bound 0 (image-height image) (- top aoe))
+                             (+ (* 2 aoe) width)
+                             (+ (* 2 aoe) height))
       (when stroke? 
         (repeat 20 context-set-brush! "2. Hardness 100" 9)
         (image-stroke-selection! image))
@@ -276,17 +270,25 @@
     (render-blobs! image distort-lst
                    3
                    (round (find-biggest-distortion image))
-                   aoe blur-degree)
+                   aoe blur-degree #t)
     (blur-image image (get-top-layer image) blur-degree)))
 
 (define magnifying-glass!
-  (lambda (image left top diameter factor)
-    (add-scaled-ellipse! 
-     image (get-top-layer image) left top diameter diameter (* -1 factor) #t)
-    (context-update-displays!)))
+  (lambda (image magnify-lst factor)
+    (let kernel ([remaining magnify-lst])
+      (if (null? remaining)
+          (context-update-displays!)
+          (let ([glass (car remaining)])
+            (add-scaled-ellipse! 
+             image (get-top-layer image)
+             (list-ref glass 0)
+             (list-ref glass 1)
+             (round (/ 2 (+ (list-ref glass 2) (list-ref glass 3))))
+             (round (/ 2 (+ (list-ref glass 2) (list-ref glass 3))))
+             (* -1 factor) #t))))))
 
 (define render-blobs!
-  (lambda (image lst min-dimension max-dimension aoe blur-degree)
+  (lambda (image lst min-dimension max-dimension aoe blur-degree stroke?)
     (copy-and-add-layer! image (get-top-layer image))
     (let* ([layers (cadr (gimp-image-get-layers image))]
            [base (cadr layers)]
@@ -303,7 +305,7 @@
                image base
                (modulo (list-ref blob 0) (- (image-width image) width))
                (modulo (list-ref blob 1) (- (image-height image) height))
-               width height aoe #f)
+               width height aoe stroke?)
               (kernel (cdr remaining))))))))
 
 (define rain-me!
@@ -311,7 +313,7 @@
     (render-blobs! image raindrop-lst
                    3
                    (round (find-biggest-raindrop image))
-                   aoe blur-degree)))
+                   aoe blur-degree #f)))
 
 (define copy-and-add-layer!
   (lambda (image layer)
