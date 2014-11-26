@@ -34,15 +34,20 @@
 (define image-series
   (lambda (n width height)
     (cond [(= n 666)
-           (image-show (image-load "/home/goldberg/public_html/images/samcollage.png"))]
+           (image-show 
+            (image-load "/home/goldberg/public_html/images/samcollage.png"))]
           [(= n 420)
-           (image-show (image-load "/home/goldberg/public_html/images/stonecollage.png"))]
+           (image-show 
+            (image-load "/home/goldberg/public_html/images/stonecollage.png"))]
           [(= n 42)
-           (image-show (image-load "/home/goldberg/public_html/images/weinmancollage.png"))]
+           (image-show 
+            (image-load "/home/goldberg/public_html/images/weinmancollage.png"))]
           [(= n 888)
-           (image-show (image-load "/home/goldberg/public_html/images/daviscollage.png"))]
+           (image-show 
+            (image-load "/home/goldberg/public_html/images/daviscollage.png"))]
           [(= n 0)
-           (image-show (image-load "/home/goldberg/public_html/images/walkercollage.png"))]
+           (image-show 
+            (image-load "/home/goldberg/public_html/images/walkercollage.png"))]
           [else
            (master-series n width height)]
           )))
@@ -54,11 +59,17 @@
         [(>= 10000 (image-area fractal))
          fractal]
         [(= 0 (modulo n 3))
-         (magnifying-glass! fractal (magnify-inputs fractal) 5)]
+         (magnifying-glass! fractal (magnify-inputs fractal))]
         [(= 1 (modulo n 3))
-         (distort! fractal (distortion-inputs fractal) (determine-aoe n) (determine-blur n))]
+         (distort! fractal 
+                   (distortion-inputs fractal) 
+                   (determine-aoe n) 
+                   (determine-blur n))]
         [else 
-         (rain-me! fractal (raindrop-inputs fractal) (determine-aoe n) (determine-blur n))])
+         (rain-me! fractal 
+                   (raindrop-inputs fractal) 
+                   (determine-aoe n) 
+                   (determine-blur n))])
       fractal)))
 
 ; An version of image-series that generates various portions of the
@@ -68,7 +79,8 @@
   (lambda (n width height)
     (let* ([FRACTAL-CHOICE (car 
                             (list-ref fractal-table 
-                                      (modulo (round (/ n 4)) (length fractal-table))))]
+                                      (modulo (round (/ n 3)) 
+                                              (length fractal-table))))]
            [ASSOC-FRACTAL (lookup-attributes FRACTAL-CHOICE fractal-table)]
            [DEFAULT (irgb 0 0 0)]
            [HOFFSET ((list-ref ASSOC-FRACTAL 2) n)]
@@ -105,7 +117,6 @@
 ;;;   [No additional]
 ;;; Postconditions:
 ;;;   [No additional]
-
 (define dim-row
   (lambda (matrix)
     (length matrix)))
@@ -122,7 +133,6 @@
 ;;;   [No additional]
 ;;; Postconditions:
 ;;;   [No additional]
-
 (define dim-col
   (lambda (matrix)
     (let ([mcar (car matrix)])
@@ -137,7 +147,8 @@
 ;;;   vec, a column-vector of real numbers
 ;;;   power, a nonnegative integer
 ;;; Purpose:
-;;;   Raises a 'matrix' to some 'power' and then multiplies the resulting matrix by 'vec'.
+;;;   Raises a 'matrix' to some 'power' and then multiplies the resulting 
+;;;   matrix by 'vec'.
 ;;; Produces:
 ;;;   chaotic-vec, a column-vector
 ;;; Preconditions:
@@ -145,7 +156,6 @@
 ;;; Postconditions:
 ;;;   (dim-row vec)=(dim-row chaotic-vec)
 ;;;   (* (expt matrix power) vec)=chaotic-vec
-
 (define chaotic-chain
   (lambda (matrix vec power)
     (let kernel ([chaotic-vec vec][counter 0])
@@ -168,8 +178,8 @@
 ;;;   (dim-row left)=(dim-row product)
 ;;;   (dim-col right)=(dim-col product)
 ;;; Props:
-;;;    Mr. Stone helped us figure out the nested recursions necessary to make this procedure work.
-
+;;;    Mr. Stone helped us figure out the nested recursions necessary to make 
+;;;    this procedure work.
 (define matrix-multiplication
   (lambda (left right)
     (let ([left-dim-row (dim-row left)]
@@ -177,19 +187,24 @@
           [left-dim-col (dim-col left)]
           [right-dim-col (dim-col right)])
       (if (= left-dim-col right-dim-row)
-          (let left-row ([left-row-cycle 0]) ;;;This sets the row of 'left' to recurse over.
+          (let left-row ([left-row-cycle 0]) 
+            ;;;This sets the row of 'left' to recurse over.
             (if (= left-dim-row left-row-cycle)
                 null
                 (cons 
-                 (let right-col ([right-col-cycle 0]) ;;;This sets the column of 'right' to recurse over.
+                 (let right-col ([right-col-cycle 0]) 
+                   ;;;This sets the column of 'right' to recurse over.
                    (if (= right-dim-col right-col-cycle)
                        null
                        (cons 
-                        (let vec-functional ([position 0]) ;;;This carries out the multiplication between 'left-row' and 'right-col'.
+                        (let vec-functional ([position 0]) 
+  ;;;This carries out the multiplication between 'left-row' and 'right-col'.
                           (if (= position right-dim-row)
                               0
-                              (+ (* (list-ref (list-ref left left-row-cycle) position)
-                                    (list-ref (list-ref right position) right-col-cycle))
+                              (+ (* (list-ref 
+                                     (list-ref left left-row-cycle) position)
+                                    (list-ref 
+                                     (list-ref right position) right-col-cycle))
                                  (vec-functional (+ position 1)))))
                         (right-col (+ right-col-cycle 1)))))
                  (left-row (+ left-row-cycle 1)))))
@@ -201,7 +216,8 @@
 ;;; Parameters:
 ;;;   image, an image
 ;;; Purpose:
-;;;   Creates a list of 'column-vectors' to be used to render raindrops onto image.
+;;;   Creates a list of 'column-vectors' to be used to render raindrops onto 
+;;;   image.
 ;;; Produces:
 ;;;   inputs, a list of 'column-vectors'.
 ;;; Preconditions:
@@ -210,7 +226,6 @@
 ;;; Postconditions:
 ;;;   (length inputs)=num
 ;;;   Each element of 'inputs' should be a four-dimensional column-vector.
-
 (define raindrop-inputs
   (lambda (image)
     (let ([num (num-of-inputs image)])
@@ -225,7 +240,8 @@
 ;;; Parameters:
 ;;;   image, an image
 ;;; Purpose:
-;;;   Creates a list of 'column-vectors' to be used to render the magnifiers onto image.
+;;;   Creates a list of 'column-vectors' to be used to render the magnifiers 
+;;;   onto image.
 ;;; Produces:
 ;;;   inputs, a list of 'column-vectors'.
 ;;; Preconditions:
@@ -234,14 +250,14 @@
 ;;; Postconditions:
 ;;;   (length inputs)=num
 ;;;   Each element of 'inputs' should be a three-dimensional column-vector.
-
 (define magnify-inputs
   (lambda (image)
     (let ([num (num-of-inputs image)])
       (let kernel ([power 0])
         (if (= power num)
             null
-            (cons (chaotic-chain chaotic-matrix-3x3 initial-magnify-vector power) 
+            (cons 
+             (chaotic-chain chaotic-matrix-3x3 initial-magnify-vector power) 
                   (kernel (+ power 1))))))))
 
 ;;; Procedure:
@@ -258,7 +274,6 @@
 ;;; Postconditions:
 ;;;   (length inputs)=num
 ;;;   Each element of 'inputs' should be a four-dimensional column-vector.
-
 (define distortion-inputs
   (lambda (image)
     (let ([num (num-of-inputs image)])
@@ -282,7 +297,6 @@
 ;;;   does not execute.
 ;;; Postconditions:
 ;;;   [No additional]
-
 (define num-of-inputs
   (lambda (image)
     (round (* 10 (log (image-area image))))))
@@ -304,10 +318,12 @@
 ;;;   Have fractal be passed into 'steps-to-escape' from 'fractal-image-series'
 ;;;   so as to pass the assoc-list from fractal-table.
 ;;; Postconditions:
-;;;   If steps >= 0, then complex "escapes" after exactly steps iterations.  That is,
+;;;   If steps >= 0, then complex "escapes" after exactly steps iterations. 
+;;;   That is,
 ;;;     distance((f^s)(complex), 0) >= 2 and for all i, 0 <= i < s, 
 ;;;     distance((f^i)(complex), 0) < 2.
-;;;   If steps = -1, then complex does not "escape" within max-recursions. That is,
+;;;   If steps = -1, then complex does not "escape" within max-recursions. 
+;;;   That is,
 ;;;     for all i, 0 <= i <= max-recursions, distance((f^i)(complex), 0) < 2.
 (define steps-to-escape
   (lambda (complex-number fractal)
@@ -365,8 +381,9 @@
                              (+ (* 2 aoe) width)
                              (+ (* 2 aoe) height))
       (when stroke? 
-        (context-set-brush! "2. Hardness 100" 3)
-        (repeat 1 (image-stroke-selection! image)))
+        (context-set-brush! "2. Hardness 075" 1)
+        (context-set-fgcolor! 0) 
+        (repeat 1 image-stroke-selection! image))
       (scale-selection-into-new-layer!
        temp-layer left top (+ left width) (+ top height))
       (gimp-image-remove-layer image temp-layer)
@@ -469,30 +486,33 @@
 ;;; Parameters:
 ;;;   image, an image
 ;;;   magnify-lst, a list
-;;;   factor, a number
 ;;; Purpose:
 ;;;   To render "magnifying glasses" on the image (ellipses that magnify a 
 ;;;   certain area)
 ;;; Produces:
 ;;;   [Nothing; Called for the side effect.]
 ;;; Preconditions:
-;;;   factor > 0
+;;;   [No additional]
 ;;; Postconditions:
 ;;;   [No additional]
 (define magnifying-glass!
-  (lambda (image magnify-lst factor)
-    (let kernel ([remaining magnify-lst])
+  (lambda (image magnify-lst)
+    (let kernel ([remaining (list-take magnify-lst (* 1/3 (length magnify-lst)))])
       (if (null? remaining)
           (context-update-displays!)
           (let ([glass (car remaining)]
-                [max-diameter (find-biggest-magnifier image)])
+                [max-diameter (find-biggest-magnifier image)]
+                [magnification (find-magnification image)])
             (add-scaled-ellipse! 
              image (get-top-layer image)
              (modulo (round (car (list-ref glass 0))) (image-width image))
              (modulo (round (car (list-ref glass 1))) (image-height image))
-             (+ 11 (modulo (round (car (list-ref glass 2))) max-diameter))
-             (+ 11 (modulo (round (car (list-ref glass 2))) max-diameter))
-             (* -1 factor) #t)
+             (+ 1 (* 2 magnification) 
+                (modulo (round (car (list-ref glass 2))) max-diameter))
+             (+ 1 (* 2 magnification) 
+                (modulo (round (car (list-ref glass 2))) max-diameter))
+             (* -1 magnification) 
+             #t)
             (kernel (cdr remaining)))))))
 
 ;;; Procedure:
@@ -647,6 +667,22 @@
   (lambda (image)
     (round (* 6 (log (image-area image))))))
 
+;;; Procedure:
+;;;   find-magnification
+;;; Parameters:
+;;;   image, an image
+;;; Purpose:
+;;;   Retrieve the magnification factor.
+;;; Produces:
+;;;   n, a number
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   [No additional]
+(define find-magnification
+  (lambda (image)
+    (round (/ (image-area image) 9000))))
+
 
 ; +---------------+--------------------------------------------------
 ; | Minor Helpers |
@@ -672,6 +708,17 @@
 ;;;          It is a procedure and is dependent on the unit-coord-y.
 (define fractal-table
   (list
+   (list "flow"
+         (lambda (c z)
+           (+ (square (real-part (* z z z))) (* 0+i (square (imag-part (/ z z z))))))
+         (lambda (n)
+           (+ -2.0 (* 0.5 (mod n 3))))
+         (lambda (n)
+           (+ -1.0 (* 0.25 (mod n 5))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))
    (list "blade" 
          (lambda (c z) (+ c (- (real-part (expt z 3)) 
                                (* 0+i (imag-part (/ z z z))))))
@@ -708,9 +755,16 @@
          (lambda (VOFFSET)
            (- 1.0 VOFFSET)))
    (list "julia" 
-         (lambda (c z) 
-           (- (* z z) 1)))
-   (list "eagle")
+         (lambda (c z)
+           (- (* z z) 1))
+                  (lambda (n)
+           (+ -3.0 (* 0.5 (mod n 7))))
+         (lambda (n)
+           (+ -3.0 (* 0.5 (mod n 7))))
+         (lambda (HOFFSET)
+           (- 1.0 HOFFSET))
+         (lambda (VOFFSET)
+           (- 1.0 VOFFSET)))
    (list "void"
          (lambda (c z)
            (- (expt z (real-part c)) 1))
@@ -759,7 +813,8 @@
 ;;;   Element 0 of each entry must be a string which represents a fractal name.
 ;;; Postconditions:
 ;;;   If an entry for the name appears somewhere in the table, 'assoc-result' is
-;;;     the corresponding list that contains 'string' (computed from the components).
+;;;     the corresponding list that contains 'string' (computed from the 
+;;;     components).
 (define lookup-attributes
   (lambda (string table)
     (let ([assoc-result (assoc string table)])
@@ -865,7 +920,7 @@
 ;;;   If (> 5 blur), then (+ 5 blur).
 (define determine-blur
   (lambda (n)
-    (let ([mod-blur (modulo (* n 13) 100)])
+    (let ([mod-blur (modulo (* n 13) 15)])
       (if (> 5 mod-blur)
           (+ 5 mod-blur)
           mod-blur))))
@@ -1034,7 +1089,6 @@
 ;;;   The first element is 'left' of the blob.
 ;;;   The second element is 'top' of the blob.
 ;;;   The third element is 'diameter' of the blob.
-
 (define initial-magnify-vector
   (list (list 0) (list 0) (list 20)))
 
