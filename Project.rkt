@@ -190,7 +190,7 @@
 
 (define num-of-inputs
   (lambda (image)
-    (min 200 (round (+ (* 0.000161411 (image-area image)) 40.2778)))))
+    (min 350 (round (+ (* 0.000161411 (image-area image)) 40.2778)))))
 
 ;;; Procedure:
 ;;;   steps-to-escape
@@ -270,7 +270,7 @@
     (render-blobs! image distort-lst
                    3
                    (round (find-biggest-distortion image))
-                   aoe blur-degree #t)
+                   aoe 0 #t)
     (blur-image image (get-top-layer image) blur-degree)))
 
 (define magnifying-glass!
@@ -328,11 +328,15 @@
 
 (define find-biggest-raindrop
   (lambda (image)
-    (- (* 4.5 (log (image-area image))) 18.5)))
+    (* 2.4 (log (image-area image)))))
 
 (define find-biggest-distortion
   (lambda (image)
-    (+ (* 0.0000895644 (image-area image)) 11.3735)))
+    (* 4 (log (image-area image)))))
+
+(define find-biggest-magnifier
+  (lambda (image)
+    (* 6 (log (image-area image)))))
 
 ; +---------------+--------------------------------------------------
 ; | Minor Helpers |
